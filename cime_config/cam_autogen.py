@@ -33,6 +33,7 @@ sys.path.append(_REG_GEN_DIR)
 # Import needed registry and other src/data scripts:
 from generate_registry_data import gen_registry
 from write_init_files import write_init_files
+from resolved_var_capgen_v1 import Capgenv1ResolvedVars
 
 ###############################################################################
 
@@ -791,7 +792,14 @@ def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
         #   within write_init_files (so that write_init_files can be the place
         #   where the source include files are stored).
         source_paths = [source_mods_dir, _REG_GEN_DIR]
-        retmsg = write_init_files(cap_database, ic_names, registry_constituents, vars_init_value,
+        # write_init_files() consumes a backend-neutral ResolvedVar adapter,
+        # not a raw CCPPDatabaseObj, directly (see resolved_var.py). Only
+        # one such adapter exists today (Capgenv1ResolvedVars, wrapping the
+        # real CCPP-framework database); this call would need to become
+        # backend-selectable if a second CCPP-framework implementation is
+        # ever adopted alongside it.
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
+        retmsg = write_init_files(resolved_vars, ic_names, registry_constituents, vars_init_value,
                                   init_dir, _find_file, source_paths,
                                   gen_fort_indent, _LOGGER)
 
