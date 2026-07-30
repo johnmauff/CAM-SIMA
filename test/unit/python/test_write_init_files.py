@@ -60,6 +60,7 @@ from ccpp_capgen import capgen
 from framework_env import CCPPFrameworkEnv
 from generate_registry_data import gen_registry
 import write_init_files as write_init
+from resolved_var_capgen_v1 import Capgenv1ResolvedVars
 # pylint: enable=wrong-import-position
 
 ###############################################################################
@@ -173,9 +174,10 @@ class WriteInitTest(unittest.TestCase):
                                    ccpp_datafile=cap_datafile)
 
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Generate physics initialization files:
-        retmsg = write_init.write_init_files(cap_database, {}, [], [], _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, {}, [], [], _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
@@ -256,9 +258,10 @@ class WriteInitTest(unittest.TestCase):
                                    ccpp_datafile=cap_datafile)
 
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Generate physics initialization files:
-        retmsg = write_init.write_init_files(cap_database, ic_names, constituents, [], _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, ic_names, constituents, [], _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
@@ -339,9 +342,10 @@ class WriteInitTest(unittest.TestCase):
                                    ccpp_datafile=cap_datafile)
 
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Generate physics initialization files:
-        retmsg = write_init.write_init_files(cap_database, ic_names, [], vars_init_value, _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, ic_names, [], vars_init_value, _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
@@ -421,9 +425,10 @@ class WriteInitTest(unittest.TestCase):
                                    ccpp_datafile=cap_datafile)
 
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Generate physics initialization files:
-        retmsg = write_init.write_init_files(cap_database, {}, [], [], _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, {}, [], [], _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
@@ -504,9 +509,10 @@ class WriteInitTest(unittest.TestCase):
                                    ccpp_datafile=cap_datafile)
 
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Generate physics initialization files:
-        retmsg = write_init.write_init_files(cap_database, {}, [], [], _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, {}, [], [], _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
@@ -588,9 +594,10 @@ class WriteInitTest(unittest.TestCase):
                                    ccpp_datafile=cap_datafile)
 
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Generate physics initialization files:
-        retmsg = write_init.write_init_files(cap_database, {}, [], [], _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, {}, [], [], _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
@@ -673,9 +680,10 @@ class WriteInitTest(unittest.TestCase):
                                    ccpp_datafile=cap_datafile)
 
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Run test
-        _ = write_init.write_init_files(cap_database, {}, [], [], _TMP_DIR,
+        _ = write_init.write_init_files(resolved_vars, {}, [], [], _TMP_DIR,
                                         find_file, _INC_SEARCH_DIRS,
                                         3, logger,
                                         phys_check_filename=vic_name,
@@ -748,9 +756,10 @@ class WriteInitTest(unittest.TestCase):
                                    ccpp_datafile=cap_datafile)
 
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Run test
-        _ = write_init.write_init_files(cap_database, {}, [], [], _TMP_DIR,
+        _ = write_init.write_init_files(resolved_vars, {}, [], [], _TMP_DIR,
                                         find_file, _INC_SEARCH_DIRS,
                                         3, logger,
                                         phys_check_filename=vic_name,
@@ -824,9 +833,10 @@ class WriteInitTest(unittest.TestCase):
                                    output_root=_TMP_DIR,
                                    ccpp_datafile=cap_datafile)
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Run test
-        retmsg = write_init.write_init_files(cap_database, {}, [], [], _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, {}, [], [], _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
@@ -898,9 +908,10 @@ class WriteInitTest(unittest.TestCase):
                                    output_root=_TMP_DIR,
                                    ccpp_datafile=cap_datafile)
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Generate physics initialization files:
-        retmsg = write_init.write_init_files(cap_database, {}, [], [], _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, {}, [], [], _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
@@ -980,9 +991,10 @@ class WriteInitTest(unittest.TestCase):
                                    output_root=_TMP_DIR,
                                    ccpp_datafile=cap_datafile)
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Generate physics initialization files:
-        retmsg = write_init.write_init_files(cap_database, {}, [], [], _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, {}, [], [], _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
@@ -1061,9 +1073,10 @@ class WriteInitTest(unittest.TestCase):
                                    output_root=_TMP_DIR,
                                    ccpp_datafile=cap_datafile)
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Generate physics initialization files:
-        retmsg = write_init.write_init_files(cap_database, ic_names, [], [], _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, ic_names, [], [], _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
@@ -1142,9 +1155,10 @@ class WriteInitTest(unittest.TestCase):
                                    output_root=_TMP_DIR,
                                    ccpp_datafile=cap_datafile)
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Generate physics initialization files:
-        retmsg = write_init.write_init_files(cap_database, {}, [], [], _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, {}, [], [], _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
@@ -1223,9 +1237,10 @@ class WriteInitTest(unittest.TestCase):
                                    output_root=_TMP_DIR,
                                    ccpp_datafile=cap_datafile)
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Generate physics initialization files:
-        retmsg = write_init.write_init_files(cap_database, {}, [], [], _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, {}, [], [], _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
@@ -1308,9 +1323,10 @@ class WriteInitTest(unittest.TestCase):
                                    output_root=_TMP_DIR,
                                    ccpp_datafile=cap_datafile)
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Run test
-        retmsg = write_init.write_init_files(cap_database, {}, [], [], _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, {}, [], [], _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
@@ -1386,9 +1402,10 @@ class WriteInitTest(unittest.TestCase):
                                    ccpp_datafile=cap_datafile)
 
         cap_database = capgen(run_env, return_db=True)
+        resolved_vars = Capgenv1ResolvedVars(cap_database)
 
         # Generate physics initialization files:
-        retmsg = write_init.write_init_files(cap_database, ic_names, constituents, vars_init_value, _TMP_DIR,
+        retmsg = write_init.write_init_files(resolved_vars, ic_names, constituents, vars_init_value, _TMP_DIR,
                                              find_file, _INC_SEARCH_DIRS,
                                              3, logger,
                                              phys_check_filename=vic_name,
