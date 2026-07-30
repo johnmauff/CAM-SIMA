@@ -91,9 +91,9 @@ class ResolvedVar:
     is_host_table_var: bool = False
     is_optional: bool = False
     # Fortran module to `use` this variable from, or None if there's no
-    # host-variable binding at all (framework vars like ccpp_error_message,
-    # and -- deliberately -- constituents, which are handled through CCPP's
-    # constituent object rather than a direct host use-association).
+    # host-variable binding at all (e.g. framework vars like ccpp_error_message).
+    # Note: host_module may still be set for constituents/host-table vars; rely on
+    # is_constituent/is_advected/is_host_table_var to decide whether a `use` is needed.
     host_module: "str | None" = None
     # This variable's own declared (bare) name -- what write_init_files.py
     # uses as the default IC-file variable-name fallback. For a plain
