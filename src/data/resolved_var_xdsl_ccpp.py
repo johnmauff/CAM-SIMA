@@ -50,24 +50,62 @@ def _to_resolved_var(record: dict) -> ResolvedVar:
         is_optional=bool(record.get("is_optional")),
         host_module=record.get("model_module_name"),
         local_name=record.get("model_var_name"),
-        # Not distinguished from local_name -- Stage 3's JSON records only
-        # scheme-side resolved args, with no DDT-chain/array-ref local-name
-        # decomposition (see array_ref_dims/intrinsic_element_names below).
-        # Correct for every non-DDT, non-array-ref fixture validated so far
-        # (Stage 4); revisit together with those two fields if a DDT
-        # sub-element or array-ref var is ever exercised through this
-        # backend (capgen_v1_parity_backlog.md Stage 4/6).
-        import_name=record.get("model_var_name"),
-        call_expr=record.get("model_var_name"),
+        # capgen_v1_parity_backlog.md Post-Stage-7 (DDT-chain gap):
+        # suite_cap.py's _resolved_var_record already sets these two to
+        # model_var_name for every record (matching the pre-fix behavior
+        # here exactly for a non-DDT arg); _apply_ddt_chain then overwrites
+        # them in place for a DDT member match -- import_name becomes the
+        # real instance variable (e.g. "phys_state"), call_expr the full
+        # "%"-chain (e.g. "phys_state%theta"). Reading them straight off
+        # the record (rather than re-deriving from model_var_name here)
+        # is what makes DDT resolution flow through to this adapter at all.
+        import_name=record.get("import_name") or record.get("model_var_name"),
+        call_expr=record.get("call_expr") or record.get("model_var_name"),
         dimensions=list(dim_names),
         has_horizontal_dim=any(is_horizontal_dimension(d) for d in dim_names),
         vertical_dim_name=_vertical_dim_name(dim_names),
-        # DDT/array-ref sub-resolution: not populated. See
-        # capgen_v1_parity_backlog.md Stage 4 -- the host-side DDT
-        # sub-element/array-index representation this needs isn't in
-        # Stage 3's JSON, which only records scheme-side resolved args.
-        array_ref_dims=None,
+        # array_ref_dims: _apply_ddt_chain populates this (as a list of
+        # standard names) for a DDT member with an array-section subscript;
+        # every other record's own base default is an empty list ([] ->
+        # None here, matching ResolvedVar's own "can't derive this, leave
+        # None" convention). intrinsic_element_names has no xdsl_ccpp-side
+        # producer at all yet (DDT *array expansion*, not member/subscript
+        # resolution -- a different capability; see capgen_v1_parity_
+        # backlog.md Stage 4) -- every fixture validated through Stage 7
+        # needed only member/subscript resolution, not array expansion, so
+        # this stays None until a fixture actually exercises that path.
+        array_ref_dims=record.get("array_ref_dims") or None,
         intrinsic_element_names=None,
+    )
+
+
+def _host_var_to_resolved_var(standard_name: str, entry: list) -> ResolvedVar:
+    """Build a minimal ResolvedVar from one entry of the JSON's top-level
+    "host_vars" dict (see XdslCcppResolvedVars.__init__) -- a real host
+    variable that's never itself a scheme argument (e.g. a DDT member's
+    array-section index variable), so it never appears in any phase's own
+    call list and needs a separate, sparser construction path than
+    _to_resolved_var's per-call-list records.
+
+    entry is [local_name, module_name] (cap_shared.py's _build_host_var_map
+    result, serialized by suite_cap.py's _write_resolved_vars). This is
+    genuinely less information than a full call-list record -- no intent,
+    dimensions, or is_host_table_var/is_protected data survives the JSON
+    round-trip for these entries -- so is_host_table_var/is_protected
+    default to False here rather than being guessed. Every fixture this
+    fallback has been validated against (capgen_v1_parity_backlog.md
+    Post-Stage-7) is a MODULE-type index/dimension constant, for which
+    those defaults are correct; revisit if a HOST-type or protected
+    variable is ever reached only through this fallback.
+    """
+    local_name, module_name = entry[0], entry[1]
+    return ResolvedVar(
+        standard_name=standard_name,
+        intent="in",
+        host_module=module_name,
+        local_name=local_name,
+        import_name=local_name,
+        call_expr=local_name,
     )
 
 
@@ -78,7 +116,7 @@ class XdslCcppResolvedVars:
     """
 
     def __init__(self, json_path: str):
-        with open(json_path) as f:
+        with open(json_path, encoding="utf-8") as f:
             data = json.load(f)
         self._by_phase: dict = {
             phase: [_to_resolved_var(r) for r in records]
@@ -87,22 +125,43 @@ class XdslCcppResolvedVars:
         # Flat lookup across every phase's records, deduped by standard_name
         # (first occurrence wins) -- backs resolve_by_standard_name for the
         # recursive expansion write_init_files.py's real code already does
-        # (_find_and_add_host_variable, _get_host_model_import). Stage 3's
-        # JSON has no separate "every host variable" registry, only
-        # per-phase call lists, so this is an approximation: it only finds
+        # (_find_and_add_host_variable, _get_host_model_import). Only finds
         # names that happen to appear in at least one phase's own resolved
-        # list, not the full host variable dictionary. Adequate for every
-        # fixture validated in Stage 4 (index/dimension variables like
-        # horizontal_dimension consistently appear in the same phase's own
-        # list); revisit if a fixture needs a name that doesn't.
+        # list; self._host_vars below (capgen_v1_parity_backlog.md
+        # Post-Stage-7) is the fallback for a real host variable that's
+        # never itself a scheme argument (e.g. a DDT member's own
+        # array-section index variable), so never appears in any phase's
+        # call list at all.
         self._flat: dict = {}
         for records in self._by_phase.values():
             for rv in records:
                 self._flat.setdefault(rv.standard_name, rv)
+        # Top-level "host_vars" key (suite_cap.py's _write_resolved_vars):
+        # standard_name -> [local_name, module_name] over every HOST/MODULE
+        # variable cap_shared.py's _build_host_var_map saw, not just ones
+        # some suite call happened to resolve. Absent entirely when the
+        # generating xdsl_ccpp build predates this key -- treated as empty,
+        # not an error, so this adapter degrades to the old, narrower
+        # per-phase-only lookup rather than raising KeyError.
+        self._host_vars: dict = data.get("host_vars") or {}
 
     def call_list(self, phase: str) -> list:
         """Return the ResolvedVar list for one CCPP lifecycle phase."""
         return self._by_phase.get(phase, [])
 
     def resolve_by_standard_name(self, standard_name: str) -> "ResolvedVar | None":
-        return self._flat.get(standard_name)
+        """Look up one variable by standard name, first in the per-phase
+        flat lookup, then (capgen_v1_parity_backlog.md Post-Stage-7) in the
+        full host-variable dictionary for names that never appear in any
+        phase's own call list -- backs the same recursive expansion
+        write_init_files.py's real code does for DDT sub-elements and
+        array-reference index variables (_find_and_add_host_variable,
+        _get_host_model_import).
+        """
+        found = self._flat.get(standard_name)
+        if found is not None:
+            return found
+        entry = self._host_vars.get(standard_name)
+        if entry is None:
+            return None
+        return _host_var_to_resolved_var(standard_name, entry)
