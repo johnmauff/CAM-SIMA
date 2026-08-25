@@ -223,6 +223,7 @@ class BuildCacheCAM:
         self.__scheme_nl_groups = None
         self.__create_nl_file = None
         self.__preproc_defs = None
+        self.__ccpp_generator = None
         self.__kind_types = {}
         self.__reg_gen_files = []
         self.__ic_names = {}
@@ -299,6 +300,8 @@ class BuildCacheCAM:
                             self.__scheme_nl_groups = group_list
                         elif item.tag == 'preproc_defs':
                             self.__preproc_defs = clean_xml_text(item)
+                        elif item.tag == 'ccpp_generator':
+                            self.__ccpp_generator = clean_xml_text(item)
                         elif item.tag == 'kind_type':
                             if isinstance(item.text, str):
                                 if item.text:
@@ -342,10 +345,12 @@ class BuildCacheCAM:
 
     def update_ccpp(self, suite_definition_files, scheme_files, host_files,
                     xml_files, namelist_meta_files, namelist_groups,
-                    create_nl_file, preproc_defs, kind_types):
+                    create_nl_file, preproc_defs, kind_types,
+                    ccpp_generator="capgen"):
         """Replace the ccpp cache data with input data
         """
         self.__preproc_defs = preproc_defs
+        self.__ccpp_generator = ccpp_generator
         self.__kind_types = {}
         for kind_def in kind_types:
             name, ktype = [x.strip() for x in kind_def.split('=')]
@@ -445,6 +450,8 @@ class BuildCacheCAM:
                       self.__create_nl_file.file_hash)
         preproc = ET.SubElement(ccpp, 'preproc_defs')
         preproc.text = self.__preproc_defs
+        ccpp_generator_el = ET.SubElement(ccpp, 'ccpp_generator')
+        ccpp_generator_el.text = self.__ccpp_generator
         for kind_def, kind_type in self.__kind_types.items():
             kind_elem = ET.SubElement(ccpp, 'kind_type')
             kind_elem.text = f"{kind_def}={kind_type}"
@@ -491,13 +498,20 @@ class BuildCacheCAM:
         return mismatch
 
     def ccpp_mismatch(self, sdfs, scheme_files, host_files,
-                      preproc_defs, kind_types):
+                      preproc_defs, kind_types, ccpp_generator="capgen"):
         """
         Determine if the CCPP input data differs from the data stored in
         our cache. Return True if the data differs.
+
+        <ccpp_generator> is included in the mismatch check (Copilot review,
+        johnmauff/CAM-SIMA#2): without this, switching CCPP_GENERATOR on an
+        existing build with otherwise-unchanged inputs would leave
+        do_gen_ccpp False, silently reusing caps produced by the previous
+        generator instead of regenerating with the newly-selected one.
         """
         mismatch = ((not self.__preproc_defs) or
-                    (self.__preproc_defs != preproc_defs))
+                    (self.__preproc_defs != preproc_defs) or
+                    (self.__ccpp_generator != ccpp_generator))
         if not mismatch:
             my_kind_defs = set(self.__kind_types.keys())
             test_kdefs = {z[0] : z[1] for z in

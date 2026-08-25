@@ -601,7 +601,8 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
         do_gen_ccpp = force or build_cache.ccpp_mismatch(sdfs, scheme_files,
                                                          host_files,
                                                          preproc_cache_str,
-                                                         kind_phys)
+                                                         kind_phys,
+                                                         ccpp_generator)
     else:
         os.makedirs(genccpp_dir)
         do_gen_ccpp = True
@@ -782,7 +783,7 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
         # save build details in the build cache
         build_cache.update_ccpp(sdfs, scheme_files, host_files, xml_files,
                                 scheme_nl_meta_files, nl_groups, create_nl_file,
-                                preproc_cache_str, kind_types)
+                                preproc_cache_str, kind_types, ccpp_generator)
         request = DatatableReport("utility_files")
         ufiles_str = datatable_report(cap_output_file, request, ";")
         utility_files = ufiles_str.split(';')
