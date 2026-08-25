@@ -673,6 +673,25 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             # isolates that -- checked below like every other failure path
             # in this file. Also matches capgen-v1's own stated convergence
             # goal (CLI invocation preferred over a Python API).
+            #
+            # preproc_defs is deliberately NOT passed to this CLI invocation
+            # (Copilot review, johnmauff/CAM-SIMA#2): xdsl_ccpp's ccpp_dsl.py
+            # has no preprocessing-related flag at all, and its frontend
+            # (ccpp_xml.py) has no C-preprocessor capability for .meta files
+            # (no #ifdef handling, no CPP subprocess step) -- a real gap
+            # requiring new xdsl_ccpp frontend capability, not just wiring.
+            # Silently ignoring a case's real preproc_defs would generate a
+            # cap that's wrong in a way the build gives no signal about, so
+            # fail loudly here instead until that capability exists.
+            if preproc_defs:
+                emsg = ("ERROR: ccpp_generator='xdsl_ccpp' does not support "
+                        "preprocessor defines yet (got: {}). xdsl_ccpp has "
+                        "no CPP-preprocessing capability for .meta files -- "
+                        "see capgen_v1_parity_backlog.md. Unset CAM_CONFIG_OPTS "
+                        "preproc defines or use ccpp_generator='capgen' for "
+                        "this case.")
+                raise CamAutoGenError(emsg.format(preproc_cache_str))
+            # end if
             resolved_vars_json = os.path.join(genccpp_dir, "resolved_vars.json")
             cmd = [
                 sys.executable, "-m", "xdsl_ccpp.tools.ccpp_dsl",

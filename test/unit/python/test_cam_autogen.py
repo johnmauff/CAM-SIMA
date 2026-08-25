@@ -13,7 +13,7 @@ or (for more verbose output):
 
 python test_cam_autogen.py -v
 
-which will currently run 14 tests, all of which should pass.
+which will currently run 15 tests, all of which should pass.
 """
 
 #----------------------------------------
@@ -97,13 +97,14 @@ class FakeBuildCache:
         """
         return False
 
-    def update_ccpp(self, sdfs, scheme_files, xml_files,
-                    preproc_defs, kind_phys):
+    def update_ccpp(self, sdfs, scheme_files, host_files, xml_files,
+                    namelist_meta_files, namelist_groups, create_nl_file,
+                    preproc_defs, kind_phys, ccpp_generator="capgen"):
 
         """Fake version of 'update_ccpp' method"""
 
     def ccpp_mismatch(self, sdfs, scheme_files, host_files,
-                      preproc_defs, kind_phys):
+                      preproc_defs, kind_phys, ccpp_generator="capgen"):
 
         """
         Fake version of 'ccpp_mismatch' method.
@@ -663,6 +664,49 @@ class CamAutoGenTestRoutine(unittest.TestCase):
         self.assertEqual(emsg, str(autoerr.exception))
 
         #Remove extra test file:
+        os.remove(os.path.join(self.test_src_mods_dir, "suite_simple.xml"))
+
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    def test_xdsl_ccpp_rejects_preproc_defs(self):
+
+        """
+        Check that "generate_physics_suites" fails loudly, rather than
+        silently ignoring them, if preproc_defs are set for
+        ccpp_generator='xdsl_ccpp' -- xdsl_ccpp has no CPP-preprocessing
+        capability for .meta files yet (Copilot review,
+        johnmauff/CAM-SIMA#2).
+        """
+
+        #Copy test files into test SourceMods directory:
+        test_suite = os.path.join(self.test_suite_path, "write_init_files", "suite_simple.xml")
+        test_meta  = os.path.join(self.test_suite_path, "write_init_files", "temp_adjust.meta")
+        test_src  = os.path.join(self.test_suite_path, "write_init_files", "temp_adjust.F90")
+
+        shutil.copy2(test_suite, self.test_src_mods_dir)
+        shutil.copy2(test_meta, self.test_src_mods_dir)
+        shutil.copy2(test_src, self.test_src_mods_dir)
+
+        #Remove the pre-made "ccpp" directory so generation is forced to run:
+        shutil.rmtree(os.path.join(self.test_bldroot, "ccpp"))
+
+        #Expect "CamAutoGenError":
+        with self.assertRaises(CamAutoGenError) as autoerr:
+            _ = generate_physics_suites(self.test_cache, ["-DSOME_DEFINE"], "cam",
+                                        "simple", _CAM_ROOT_DIR, self.test_bldroot,
+                                        self.test_reg_dir, [],
+                                        self.test_src_mods_dir, False, False,
+                                        ccpp_generator="xdsl_ccpp")
+        #End with
+
+        #Check that the error message names the actual cause:
+        self.assertIn("does not support preprocessor defines", str(autoerr.exception))
+
+        #Remove extra test files:
+        test_meta_files = glob.glob(f"{self.test_src_mods_dir}"+os.sep+"temp_adjust.*")
+        for test_file in test_meta_files:
+            os.remove(test_file)
+        #End for
         os.remove(os.path.join(self.test_src_mods_dir, "suite_simple.xml"))
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++
