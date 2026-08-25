@@ -18,6 +18,7 @@ import logging
 import shutil
 import filecmp
 import glob
+import subprocess
 
 #pylint: disable=wrong-import-position
 
@@ -34,6 +35,15 @@ sys.path.append(_REG_GEN_DIR)
 from generate_registry_data import gen_registry
 from write_init_files import write_init_files
 from resolved_var_capgen_v1 import Capgenv1ResolvedVars
+# capgen_v1_parity_backlog.md Stage 9: resolved_var_xdsl_ccpp.py (the
+# xdsl_ccpp-backed ResolvedVar adapter) is deliberately NOT imported here
+# alongside Capgenv1ResolvedVars above -- it transitively imports xdsl_ccpp
+# itself (a real, non-default dependency real capgen-v1 builds never need
+# installed), so importing it unconditionally at module load time would
+# break every CCPP_GENERATOR=capgen build (today's only real production
+# path) on any system without xdsl_ccpp installed. Imported instead inside
+# generate_init_routines()'s own xdsl_ccpp branch, only when that backend
+# is actually selected.
 
 ###############################################################################
 
@@ -484,7 +494,7 @@ def generate_registry(data_search, build_cache, atm_root, bldroot,
 def generate_physics_suites(build_cache, preproc_defs, host_name,
                             phys_suites_str, atm_root, bldroot,
                             reg_dir, reg_files, source_mods_dir,
-                            gpu_flag, force):
+                            gpu_flag, force, ccpp_generator="capgen"):
 ###############################################################################
     """
     Generate the source for the configured physics suites,
@@ -494,6 +504,16 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
        - A flag set to True if the CCPP framework was run
        - The pathname of the CCPP Framework database
        - A list of CCPP namelist groups to add to atm_in
+
+    <ccpp_generator> selects the CCPP cap-generation backend: 'capgen'
+    (default, real capgen-v1 -- CAM-SIMA's only production path today) or
+    'xdsl_ccpp' (evaluation -- see capgen_v1_parity_backlog.md Stage 9).
+    The fifth return value (named capgen_db here for the 'capgen' path) is
+    a real CCPPDatabaseObj for 'capgen', or the path to a
+    --emit-resolved-vars JSON file for 'xdsl_ccpp' -- callers must pass
+    <ccpp_generator> through to generate_init_routines() to construct the
+    matching ResolvedVar adapter, not infer the backend from this value's
+    own type.
     """
 
     # Physics source gets copied into blddir
@@ -628,11 +648,8 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     # end if (no else)
 
     if do_gen_ccpp:
-        gen_docfiles = False
-        use_error_obj = False
-
         # print extra info to bldlog if DEBUG is TRUE
-        _LOGGER.debug("Calling capgen: ")
+        _LOGGER.debug("Calling %s: ", ccpp_generator)
         _LOGGER.debug("   host files: %s", ", ".join(host_files))
         _LOGGER.debug("   scheme files: %s", ', '.join(scheme_files))
         _LOGGER.debug("   suite definition files: %s", ', '.join(sdfs))
@@ -644,17 +661,55 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             _LOGGER.debug("   %s: '%s'", name, ktype)
         # end for
 
-        # generate CCPP caps
-        run_env = CCPPFrameworkEnv(_LOGGER, host_files=host_files,
-                                   scheme_files=scheme_files, suites=sdfs,
-                                   preproc_directives=preproc_defs,
-                                   generate_docfiles=gen_docfiles,
-                                   host_name=host_name, kind_types=kind_types,
-                                   use_error_obj=use_error_obj,
-                                   force_overwrite=False,
-                                   output_root=genccpp_dir,
-                                   ccpp_datafile=cap_output_file)
-        capgen_db = capgen(run_env, return_db=True)
+        if ccpp_generator == "xdsl_ccpp":
+            # capgen_v1_parity_backlog.md Stage 9: subprocess, not xdsl_ccpp's
+            # Python API in-process -- ccpp_dsl.py's own error paths call
+            # sys.exit() directly rather than raising a catchable exception
+            # (this file's own "No CCPPError-equivalent exception type" gap,
+            # see that doc's "Smaller interface-shape gaps" note), so an
+            # in-process call could kill this entire CIME build with a bare
+            # exit code instead of a clean CamAutoGenError. A subprocess
+            # isolates that -- checked below like every other failure path
+            # in this file. Also matches capgen-v1's own stated convergence
+            # goal (CLI invocation preferred over a Python API).
+            resolved_vars_json = os.path.join(genccpp_dir, "resolved_vars.json")
+            cmd = [
+                sys.executable, "-m", "xdsl_ccpp.tools.ccpp_dsl",
+                # xdsl_ccpp's own CLI takes one comma-joined string per
+                # file-list option, not a repeated flag (capgen_v1_parity_
+                # backlog.md's own "Smaller interface-shape gaps" note) --
+                # handled here, not pushed onto xdsl_ccpp itself.
+                "--host-files", ",".join(host_files),
+                "--scheme-files", ",".join(scheme_files),
+                "--suites", ",".join(sdfs),
+                "--host-name", host_name,
+                "-o", genccpp_dir,
+                "--tempdir", os.path.join(genccpp_dir, "tmp"),
+                "--emit-datatable", cap_output_file,
+                "--emit-resolved-vars", resolved_vars_json,
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True,
+                                    check=False)
+            if result.returncode != 0:
+                emsg = "ERROR: xdsl_ccpp cap generation failed:\n{}"
+                raise CamAutoGenError(emsg.format(result.stderr))
+            # end if
+            capgen_db = resolved_vars_json
+        else:
+            gen_docfiles = False
+            use_error_obj = False
+            # generate CCPP caps
+            run_env = CCPPFrameworkEnv(_LOGGER, host_files=host_files,
+                                       scheme_files=scheme_files, suites=sdfs,
+                                       preproc_directives=preproc_defs,
+                                       generate_docfiles=gen_docfiles,
+                                       host_name=host_name, kind_types=kind_types,
+                                       use_error_obj=use_error_obj,
+                                       force_overwrite=False,
+                                       output_root=genccpp_dir,
+                                       ccpp_datafile=cap_output_file)
+            capgen_db = capgen(run_env, return_db=True)
+        # end if
     else:
         capgen_db = None
     # end if
@@ -754,7 +809,7 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
 def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
                            source_mods_dir, gen_fort_indent,
                            cap_database, ic_names, registry_constituents,
-                           vars_init_value):
+                           vars_init_value, ccpp_generator="capgen"):
 ###############################################################################
     """
     Generate the host model initialization source code files
@@ -762,6 +817,14 @@ def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
     both the registry and the CCPP physics suites if required
     (new case or changes to registry or CCPP source(s), meta-data,
     and/or script).
+
+    <ccpp_generator> ('capgen' or 'xdsl_ccpp', capgen_v1_parity_backlog.md
+    Stage 9) selects which ResolvedVar adapter wraps <cap_database> -- for
+    'xdsl_ccpp', <cap_database> is actually a --emit-resolved-vars JSON
+    path (see generate_physics_suites()'s own docstring), not a real
+    CCPPDatabaseObj. Passed explicitly rather than inferred from
+    <cap_database>'s own type, since explicit is safer than type-sniffing
+    across a cross-backend branch like this.
     """
 
     # Add new directory to build path:
@@ -793,12 +856,29 @@ def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
         #   where the source include files are stored).
         source_paths = [source_mods_dir, _REG_GEN_DIR]
         # write_init_files() consumes a backend-neutral ResolvedVar adapter,
-        # not a raw CCPPDatabaseObj, directly (see resolved_var.py). Only
-        # one such adapter exists today (Capgenv1ResolvedVars, wrapping the
-        # real CCPP-framework database); this call would need to become
-        # backend-selectable if a second CCPP-framework implementation is
-        # ever adopted alongside it.
-        resolved_vars = Capgenv1ResolvedVars(cap_database)
+        # not a raw CCPPDatabaseObj, directly (see resolved_var.py).
+        # capgen_v1_parity_backlog.md Stage 9: two adapters now exist,
+        # selected by ccpp_generator -- they have genuinely different
+        # constructor shapes (a live database object vs. a JSON file path),
+        # so this is a real conditional, not a drop-in swap.
+        if ccpp_generator == "xdsl_ccpp":
+            # Deferred import, not alongside Capgenv1ResolvedVars at the top
+            # of this file -- resolved_var_xdsl_ccpp.py transitively imports
+            # xdsl_ccpp itself, a real, non-default dependency a
+            # ccpp_generator=capgen build must never require. _REG_GEN_DIR
+            # (src/data, where this module lives) was removed from sys.path
+            # right after this file's own top-of-file imports, so it's
+            # restored here, symmetrically, only for this import.
+            sys.path.append(_REG_GEN_DIR)
+            #pylint: disable=import-outside-toplevel
+            # Deliberately deferred (see comment above) -- not a style lapse.
+            from resolved_var_xdsl_ccpp import XdslCcppResolvedVars
+            #pylint: enable=import-outside-toplevel
+            sys.path.remove(_REG_GEN_DIR)
+            resolved_vars = XdslCcppResolvedVars(cap_database)
+        else:
+            resolved_vars = Capgenv1ResolvedVars(cap_database)
+        # end if
         retmsg = write_init_files(resolved_vars, ic_names, registry_constituents, vars_init_value,
                                   init_dir, _find_file, source_paths,
                                   gen_fort_indent, _LOGGER)
