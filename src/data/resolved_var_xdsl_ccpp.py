@@ -118,8 +118,13 @@ class XdslCcppResolvedVars:
     def __init__(self, json_path: str):
         with open(json_path, encoding="utf-8") as f:
             data = json.load(f)
+        # Exclude suite-owned (cap-allocated scratch) variables from the
+        # call list -- write_init_files.py only needs host-matched variables
+        # (those the host model provides at initialization). Suite-owned vars
+        # are allocated by the cap itself and never read from initial conditions.
         self._by_phase: dict = {
-            phase: [_to_resolved_var(r) for r in records]
+            phase: [_to_resolved_var(r) for r in records
+                    if r.get("ownership_kind") != "suite_owned"]
             for phase, records in data["phases"].items()
         }
         # Flat lookup across every phase's records, deduped by standard_name

@@ -19,6 +19,7 @@ import shutil
 import filecmp
 import glob
 import subprocess
+import xml.etree.ElementTree as _ET
 
 #pylint: disable=wrong-import-position
 
@@ -693,8 +694,23 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                 raise CamAutoGenError(emsg.format(preproc_cache_str))
             # end if
             resolved_vars_json = os.path.join(genccpp_dir, "resolved_vars.json")
+            # XDSL_CCPP_PYTHON allows a venv Python to be specified when the
+            # PBS job environment doesn't have the venv active.  Fall back to
+            # a cached value written during the last successful cap generation
+            # (see _xdsl_python_cache below) so the run phase works without
+            # any env-var setup in the job script.
+            _xdsl_python_cache = os.path.join(genccpp_dir, ".xdsl_ccpp_python")
+            _xdsl_python = os.environ.get("XDSL_CCPP_PYTHON", "")
+            if not _xdsl_python and os.path.isfile(_xdsl_python_cache):
+                with open(_xdsl_python_cache) as _f:
+                    _xdsl_python = _f.read().strip()
+            if not _xdsl_python:
+                _xdsl_python = sys.executable
+            # Persist so run-phase invocations can find it without the env var.
+            with open(_xdsl_python_cache, "w") as _f:
+                _f.write(_xdsl_python)
             cmd = [
-                sys.executable, "-m", "xdsl_ccpp.tools.ccpp_dsl",
+                _xdsl_python, "-m", "xdsl_ccpp.tools.ccpp_dsl",
                 # xdsl_ccpp's own CLI takes one comma-joined string per
                 # file-list option, not a repeated flag (capgen_v1_parity_
                 # backlog.md's own "Smaller interface-shape gaps" note) --
@@ -707,6 +723,21 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                 "--tempdir", os.path.join(genccpp_dir, "tmp"),
                 "--emit-datatable", cap_output_file,
                 "--emit-resolved-vars", resolved_vars_json,
+                # CAM-SIMA's scheme .meta files declare horizontal_loop_extent
+                # (the legacy convention). xdsl_ccpp rejects this by default
+                # since the --legacy-mode gate was added (2026-08-13); pass
+                # the flag unconditionally until CAM-SIMA migrates vocabulary.
+                "--legacy-mode",
+                # Generate CAM-SIMA-specific cam_ccpp_physics_* lifecycle
+                # wrappers (used by phys_comp.F90) -- gated so non-CAM
+                # builds (xdsl_ccpp's own examples/CI) don't need
+                # physics_types or physics_grid to be present.
+                "--cam-host",
+                # CAM-SIMA host meta files (e.g. cam_control_mod.meta) use
+                # 'kind = r8' (= selected_real_kind(12,100) = REAL64 on all
+                # supported compilers). Map it to REAL64 so xdsl_ccpp can
+                # emit a valid ccpp_kinds.F90 public declaration for it.
+                "--kind-map", "r8:REAL64",
             ]
             result = subprocess.run(cmd, capture_output=True, text=True,
                                     check=False)
@@ -805,21 +836,29 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                                 preproc_cache_str, kind_types, ccpp_generator)
         request = DatatableReport("utility_files")
         ufiles_str = datatable_report(cap_output_file, request, ";")
-        utility_files = ufiles_str.split(';')
+        utility_files = [f for f in ufiles_str.split(';') if f]
         _update_genccpp_dir(utility_files, genccpp_dir)
-        request = DatatableReport("dependencies")
-        dep_str = datatable_report(cap_output_file, request, ";")
-        if len(dep_str) > 0:
-            dependency_files = dep_str.split(';')
-            # If using RRTMGP in the physics suite, then modify
-            # the provided dependency files list to use the correct
-            # CPU or GPU RRTMGP dependencies:
-            if any("rrtmgp_" in scheme_name for scheme_name in scheme_names):
-                dependency_files = _set_rrtmgp_dependencies(dependency_files,
-                                                            gpu_flag)
+        # xdsl_ccpp datatable's <dependencies> section uses relative paths
+        # that cannot be resolved by cam_autogen.py (relative to the
+        # original .meta file's directory, not to the build dir).
+        # xdsl_ccpp's own framework support files are already handled via
+        # utility_files, so skip dependency copying for that generator.
+        if ccpp_generator != "xdsl_ccpp":
+            request = DatatableReport("dependencies")
+            dep_str = datatable_report(cap_output_file, request, ";")
+            if len(dep_str) > 0:
+                dependency_files = [f for f in dep_str.split(';') if f]
+                # If using RRTMGP in the physics suite, then modify
+                # the provided dependency files list to use the correct
+                # CPU or GPU RRTMGP dependencies:
+                if any("rrtmgp_" in scheme_name for scheme_name in scheme_names):
+                    dependency_files = _set_rrtmgp_dependencies(dependency_files,
+                                                                gpu_flag)
 
-            # Copy dependencies files into CCPP build directory
-            _update_genccpp_dir(dependency_files, genccpp_dir)
+                # Copy dependencies files into CCPP build directory
+                _update_genccpp_dir(dependency_files, genccpp_dir)
+            # end if
+        # end if
     # End if
 
     return [physics_blddir, genccpp_dir], do_gen_ccpp, cap_output_file,       \
@@ -889,6 +928,41 @@ def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
             # (src/data, where this module lives) was removed from sys.path
             # right after this file's own top-of-file imports, so it's
             # restored here, symmetrically, only for this import.
+            #
+            # PBS job scripts don't inherit the venv, so xdsl_ccpp may not be
+            # importable in-process. Use the Python cached in genccpp_dir by
+            # generate_physics_suites (written at build time when the venv IS
+            # active) to discover and add the right paths to sys.path.
+            try:
+                import xdsl_ccpp as _xdsl_ccpp_probe  # noqa: F401
+                del _xdsl_ccpp_probe
+            except ImportError:
+                _genccpp_dir = os.path.join(bldroot, "ccpp")
+                _xdsl_python_cache = os.path.join(_genccpp_dir, ".xdsl_ccpp_python")
+                _xdsl_python = os.environ.get("XDSL_CCPP_PYTHON", "")
+                if not _xdsl_python and os.path.isfile(_xdsl_python_cache):
+                    with open(_xdsl_python_cache) as _f:
+                        _xdsl_python = _f.read().strip()
+                if _xdsl_python and _xdsl_python != sys.executable:
+                    import subprocess as _sp
+                    # Use __path__[0] instead of __file__ because editable
+                    # installs expose xdsl_ccpp as a namespace package with
+                    # __file__ = None; __path__[0] is always the real dir.
+                    _probe_script = (
+                        "import os, xdsl_ccpp, xdsl\n"
+                        "xc = list(xdsl_ccpp.__path__)[0]\n"
+                        "xx = list(xdsl.__path__)[0]\n"
+                        "print(os.path.dirname(xc))\n"
+                        "print(os.path.dirname(xx))\n"
+                    )
+                    _probe_out = _sp.check_output(
+                        [_xdsl_python, "-c", _probe_script], text=True
+                    ).strip().split("\n")
+                    for _p in _probe_out:
+                        if _p and _p not in sys.path:
+                            sys.path.insert(0, _p)
+                # end if
+            # end try
             sys.path.append(_REG_GEN_DIR)
             #pylint: disable=import-outside-toplevel
             # Deliberately deferred (see comment above) -- not a style lapse.
