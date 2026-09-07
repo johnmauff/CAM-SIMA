@@ -15,6 +15,7 @@ backend would get its own equally small adapter module alongside this one.
 # write_init_files.py's real code, so this module is already on the path
 # wherever that one runs.
 from var_props import is_horizontal_dimension, is_vertical_dimension
+from parse_source import CCPPError
 
 from resolved_var import ResolvedVar
 
@@ -58,7 +59,12 @@ def _intrinsic_element_names(var):
     exactly here rather than passing the bare-string case through as if it
     were a real sub-element list.
     """
-    ielems = var.intrinsic_elements()
+    try:
+        ielems = var.intrinsic_elements()
+    except CCPPError:
+        # CCPP framework DDTs (e.g. ccpp_constituent_prop_ptr_t) are not in
+        # capgen's DDT library. Treat them as leaf variables — no expansion.
+        return None
     return ielems if isinstance(ielems, list) else None
 
 

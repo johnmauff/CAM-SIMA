@@ -733,6 +733,13 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                 # builds (xdsl_ccpp's own examples/CI) don't need
                 # physics_types or physics_grid to be present.
                 "--cam-host",
+                # Supply the real ccpp_framework/src directory so the datatable
+                # lists the real framework F90 files (ccpp_constituent_prop_mod,
+                # ccpp_scheme_utils, ccpp_hashable, ccpp_hash_table) instead of
+                # xdsl_ccpp's own stubs -- required for the ccpp_model_constituents_t
+                # API to compile correctly.
+                "--framework-src-dir",
+                os.path.join(_CAM_ROOT_DIR, "ccpp_framework", "src"),
                 # CAM-SIMA host meta files (e.g. cam_control_mod.meta) use
                 # 'kind = r8' (= selected_real_kind(12,100) = REAL64 on all
                 # supported compilers). Map it to REAL64 so xdsl_ccpp can
