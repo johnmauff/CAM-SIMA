@@ -189,6 +189,9 @@ class ConfigCAM:
         self.__bldroot  = os.path.join(exeroot, "atm", "obj")
         self.__atm_name = case.get_value("COMP_ATM")
         self.__gpu_flag = case.get_value("OPENACC_GPU_OFFLOAD") #Returns a Boolean
+        # CCPP cap-generation backend -- 'capgen' (default, production) or
+        # 'xdsl_ccpp' (evaluation, capgen_v1_parity_backlog.md Stage 9).
+        self.__ccpp_generator = case.get_value("CCPP_GENERATOR")
 
         # Save CPP definitions as a list:
         self.__cppdefs = [x for x in case.get_value("CAM_CPPDEFS").split() if x]
@@ -880,8 +883,9 @@ class ConfigCAM:
                                           self.__atm_name, phys_suites,
                                           self.__atm_root, self.__bldroot,
                                           reg_dir, reg_files, source_mods_dir,
-                                          self.__gpu_flag, force_ccpp)
-        phys_dirs, force_init, _, nml_fils, capgen_db, scheme_names = retvals
+                                          self.__gpu_flag, force_ccpp,
+                                          self.__ccpp_generator)
+        phys_dirs, force_init, _, nml_fils, resolved_vars_source, scheme_names = retvals
 
         # Add namelist definition files to dictionary:
         for nml_fil in nml_fils:
@@ -900,8 +904,8 @@ class ConfigCAM:
         init_dir = generate_init_routines(build_cache, self.__bldroot,
                                           force_ccpp, force_init,
                                           source_mods_dir, gen_fort_indent,
-                                          capgen_db, ic_names, registry_constituents,
-                                          vars_init_value)
+                                          resolved_vars_source, ic_names, registry_constituents,
+                                          vars_init_value, self.__ccpp_generator)
 
         #Add registry path to config object:
         init_dir_desc = "Location of auto-generated physics initialization code."

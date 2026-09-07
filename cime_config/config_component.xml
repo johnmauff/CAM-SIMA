@@ -117,6 +117,16 @@
     <desc>CAM dynamical core</desc>
   </entry>
 
+  <entry id="CCPP_GENERATOR">
+    <type>char</type>
+    <valid_values>capgen,xdsl_ccpp</valid_values>
+    <default_value>capgen</default_value>
+    <group>build_component_cam</group>
+    <file>env_build.xml</file>
+    <desc>CCPP cap-generation backend: real capgen-v1 (default, production) or
+    xdsl_ccpp (evaluation -- see capgen_v1_parity_backlog.md Stage 9)</desc>
+  </entry>
+
   <entry id="CAM_CONFIG_OPTS">
     <type>char</type>
     <valid_values></valid_values>

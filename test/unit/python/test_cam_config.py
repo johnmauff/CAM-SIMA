@@ -73,7 +73,8 @@ class FakeCase:
             "NTHRDS_ATM" : 1,
             "RUN_STARTDATE" : "101",
             "DEBUG" : False,
-            "OPENACC_GPU_OFFLOAD": False
+            "OPENACC_GPU_OFFLOAD": False,
+            "CCPP_GENERATOR": "capgen"
             }
 
     def get_value(self, key):
