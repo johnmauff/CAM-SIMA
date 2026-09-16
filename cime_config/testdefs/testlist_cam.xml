@@ -144,10 +144,13 @@
   </test>
 
   <!-- Derecho dycore tests -->
+  <!-- gnu entries below are excluded from aux_sima while xdsl_ccpp does not support
+       preprocessor defines (-DNP=4, -DSPMD, etc.) used by non-FPHYStest compsets.
+       To re-enable: uncomment the gnu <machine> lines in each test block below. -->
   <test compset="FKESSLER" grid="mpasa480_mpasa480" name="SMS_Ln9" testmods="cam/outfrq_kessler_mpas_derecho">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
-      <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <!-- <machine name="derecho" compiler="gnu" category="aux_sima"/> -->
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
@@ -157,7 +160,7 @@
   <test compset="FKESSLER" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
-      <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <!-- <machine name="derecho" compiler="gnu" category="aux_sima"/> -->
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
@@ -167,7 +170,7 @@
   <test compset="FHS94" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
-      <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <!-- <machine name="derecho" compiler="gnu" category="aux_sima"/> -->
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
@@ -177,7 +180,7 @@
   <test compset="FTJ16" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
-      <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <!-- <machine name="derecho" compiler="gnu" category="aux_sima"/> -->
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
@@ -187,7 +190,7 @@
   <test compset="FADIAB" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
-      <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <!-- <machine name="derecho" compiler="gnu" category="aux_sima"/> -->
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
@@ -199,7 +202,7 @@
   <test compset="FKESSLER" grid="mpasa480_mpasa480" name="SMS_Ln9" testmods="cam/outfrq_kessler_mpas_derecho_history">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
-      <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <!-- <machine name="derecho" compiler="gnu" category="aux_sima"/> -->
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
@@ -233,7 +236,7 @@
   <test compset="FCAM7" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam_analy_ic">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
-      <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <!-- <machine name="derecho" compiler="gnu" category="aux_sima"/> -->
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
@@ -245,7 +248,7 @@
   <test compset="QPC4" grid="mpasa120_mpasa120" name="SMS_Ln9" testmods="cam/outfrq_analy_ic_cam4">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
-      <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <!-- <machine name="derecho" compiler="gnu" category="aux_sima"/> -->
     </machines>
     <options>
       <option name="wallclock">00:20:00</option>
@@ -255,7 +258,7 @@
   <test compset="QPC4" grid="mpasa120_mpasa120" name="SMS_D_Ln9" testmods="cam/outfrq_analy_ic_cam4">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
-      <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <!-- <machine name="derecho" compiler="gnu" category="aux_sima"/> -->
     </machines>
     <options>
       <option name="wallclock">00:20:00</option>

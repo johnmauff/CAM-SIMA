@@ -49,7 +49,17 @@ def _to_resolved_var(record: dict) -> ResolvedVar:
         is_host_table_var=bool(record.get("is_host_table_var")),
         is_optional=bool(record.get("is_optional")),
         host_module=record.get("model_module_name"),
-        local_name=record.get("model_var_name"),
+        # Real capgen-v1's own adapter always reports the scheme's own
+        # declared argument name here, regardless of host-match status
+        # (resolved_var_capgen_v1.py: var.get_prop_value("local_name")).
+        # model_var_name is only set when HostVariableMatchPass found an
+        # actual host match, so it's None for e.g. a constituent-flagged
+        # arg (never host-matched -- accessed via q(:,:,cidx) instead) or a
+        # genuine SuiteOwned/interstitial arg with no host match at all.
+        # Fall back to the scheme's own arg_name in that case so callers
+        # (e.g. write_init_files.py's write_ic_params) always get a real
+        # local name to work with, matching capgen-v1 exactly.
+        local_name=record.get("model_var_name") or record.get("arg_name"),
         # capgen_v1_parity_backlog.md Post-Stage-7 (DDT-chain gap):
         # suite_cap.py's _resolved_var_record already sets these two to
         # model_var_name for every record (matching the pre-fix behavior

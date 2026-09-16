@@ -675,24 +675,19 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             # in this file. Also matches capgen-v1's own stated convergence
             # goal (CLI invocation preferred over a Python API).
             #
-            # preproc_defs is deliberately NOT passed to this CLI invocation
-            # (Copilot review, johnmauff/CAM-SIMA#2): xdsl_ccpp's ccpp_dsl.py
-            # has no preprocessing-related flag at all, and its frontend
-            # (ccpp_xml.py) has no C-preprocessor capability for .meta files
-            # (no #ifdef handling, no CPP subprocess step) -- a real gap
-            # requiring new xdsl_ccpp frontend capability, not just wiring.
-            # Silently ignoring a case's real preproc_defs would generate a
-            # cap that's wrong in a way the build gives no signal about, so
-            # fail loudly here instead until that capability exists.
-            if preproc_defs:
-                emsg = ("ERROR: ccpp_generator='xdsl_ccpp' does not support "
-                        "preprocessor defines yet (got: {}). xdsl_ccpp has "
-                        "no CPP-preprocessing capability for .meta files -- "
-                        "see capgen_v1_parity_backlog.md. Unset CAM_CONFIG_OPTS "
-                        "preproc defines or use ccpp_generator='capgen' for "
-                        "this case.")
-                raise CamAutoGenError(emsg.format(preproc_cache_str))
-            # end if
+            # preproc_defs is now passed through to xdsl_ccpp's own
+            # --preproc-defs flag (xdsl_ccpp/tools/ccpp_dsl.py): xdsl_ccpp
+            # gained a real CPP-preprocessing capability for the Fortran-vs-
+            # .meta cross-validation phase it runs internally
+            # (fortran_preprocess.py, mirroring capgen-v1's own
+            # PreprocStack design -- see capgen_v1_parity_backlog.md and the
+            # plan that introduced this). That validation phase is
+            # currently warn-only (mismatches are logged via this call's own
+            # stderr-to-_LOGGER.info forwarding below, never fatal) pending a
+            # full sweep across CAM-SIMA's real scheme tree -- so no
+            # CamAutoGenError is raised here anymore for a case whose
+            # CAM_CONFIG_OPTS sets preprocessor defines (-DSPMD, -DNP=4,
+            # -D_MPI, etc.).
             resolved_vars_json = os.path.join(genccpp_dir, "resolved_vars.json")
             # XDSL_CCPP_PYTHON allows a venv Python to be specified when the
             # PBS job environment doesn't have the venv active.  Fall back to
@@ -746,8 +741,18 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                 # emit a valid ccpp_kinds.F90 public declaration for it.
                 "--kind-map", "r8:REAL64",
             ]
+            if preproc_defs:
+                # "--flag=value" (one argv token), not ["--flag", "value"]:
+                # the joined value always starts with '-D' (CAM_CPPDEFS
+                # tokens are raw '-D'-prefixed strings), which argparse
+                # would otherwise mistake for a new option rather than this
+                # flag's own argument.
+                cmd += ["--preproc-defs=" + ",".join(preproc_defs)]
+            # end if
             result = subprocess.run(cmd, capture_output=True, text=True,
                                     check=False)
+            if result.stderr:
+                _LOGGER.info("xdsl_ccpp stderr:\n%s", result.stderr)
             if result.returncode != 0:
                 emsg = "ERROR: xdsl_ccpp cap generation failed:\n{}"
                 raise CamAutoGenError(emsg.format(result.stderr))
@@ -845,26 +850,19 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
         ufiles_str = datatable_report(cap_output_file, request, ";")
         utility_files = [f for f in ufiles_str.split(';') if f]
         _update_genccpp_dir(utility_files, genccpp_dir)
-        # xdsl_ccpp datatable's <dependencies> section uses relative paths
-        # that cannot be resolved by cam_autogen.py (relative to the
-        # original .meta file's directory, not to the build dir).
-        # xdsl_ccpp's own framework support files are already handled via
-        # utility_files, so skip dependency copying for that generator.
-        if ccpp_generator != "xdsl_ccpp":
-            request = DatatableReport("dependencies")
-            dep_str = datatable_report(cap_output_file, request, ";")
-            if len(dep_str) > 0:
-                dependency_files = [f for f in dep_str.split(';') if f]
-                # If using RRTMGP in the physics suite, then modify
-                # the provided dependency files list to use the correct
-                # CPU or GPU RRTMGP dependencies:
-                if any("rrtmgp_" in scheme_name for scheme_name in scheme_names):
-                    dependency_files = _set_rrtmgp_dependencies(dependency_files,
-                                                                gpu_flag)
+        request = DatatableReport("dependencies")
+        dep_str = datatable_report(cap_output_file, request, ";")
+        if len(dep_str) > 0:
+            dependency_files = [f for f in dep_str.split(';') if f]
+            # If using RRTMGP in the physics suite, then modify
+            # the provided dependency files list to use the correct
+            # CPU or GPU RRTMGP dependencies:
+            if any("rrtmgp_" in scheme_name for scheme_name in scheme_names):
+                dependency_files = _set_rrtmgp_dependencies(dependency_files,
+                                                            gpu_flag)
 
-                # Copy dependencies files into CCPP build directory
-                _update_genccpp_dir(dependency_files, genccpp_dir)
-            # end if
+            # Copy dependencies files into CCPP build directory
+            _update_genccpp_dir(dependency_files, genccpp_dir)
         # end if
     # End if
 

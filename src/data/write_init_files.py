@@ -731,6 +731,15 @@ def collect_host_var_imports(host_vars, resolved_vars, constituent_set):
         if hvar.standard_name in constituent_set:
             continue
         # end if
+        # A variable with no host module at all (e.g. a genuine
+        # SuiteOwned/interstitial variable never matched to any host/module
+        # table) has nothing to `use`-associate -- it's accessed through the
+        # cap's own generated reference, not a host module import. Without
+        # this check, _get_host_model_import would file it under a bogus
+        # `None` module key, which write_use_statements can't render.
+        if not hvar.host_module:
+            continue
+        # end if
         _get_host_model_import(hvar, use_vars_write_dict, resolved_vars)
     # end for
     return [[x, sorted(use_vars_write_dict[x])] for x in use_vars_write_dict]
