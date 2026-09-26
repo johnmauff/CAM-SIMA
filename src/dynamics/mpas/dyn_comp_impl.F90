@@ -278,7 +278,7 @@ contains
 
         call dyn_debug_print(debugout_debug, subname // ' entered')
 
-        ! This is a protected module variable.
+        ! This is not a protected module variable (see the NOTE at its declaration in dyn_comp.F90).
         allocate(advected_constituent_index(num_advected), errmsg=cerr, stat=ierr)
         call check_allocate(ierr, subname, 'advected_constituent_index(num_advected)', &
             file='dyn_comp', line=__LINE__, errmsg=trim(adjustl(cerr)))

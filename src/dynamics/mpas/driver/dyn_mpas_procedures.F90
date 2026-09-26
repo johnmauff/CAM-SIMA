@@ -515,6 +515,7 @@ contains
         character(:), allocatable :: buffer, delimiter, format
         character(:), allocatable :: value_c(:)
         integer :: i, n, offset
+        real :: rtmp
 
         if (present(separator)) then
             delimiter = separator
@@ -529,6 +530,12 @@ contains
 
             return
         end if
+
+        ! nvfortran misparses a bare `real(n)` inside an `allocate(character(...) :: ...)`
+        ! length expression (it appears to mistake the `real(` token for the start of a
+        ! type-spec in that grammar position, regardless of arguments/kind given to it).
+        ! Precomputing it here, in an ordinary assignment, avoids the ambiguity.
+        rtmp = real(n)
 
         select type (value)
             type is (character(*))
@@ -559,19 +566,19 @@ contains
                 deallocate(value_c)
             type is (integer(int32))
                 allocate(character(11 * n + len(delimiter) * (n - 1)) :: buffer)
-                allocate(character(17 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+                allocate(character(17 + len(delimiter) + floor(log10(rtmp)) + 1) :: format)
 
                 write(format, '(a, i0, 3a)') '(ss, ', n, '(i0, :, "', delimiter, '"))'
                 write(buffer, format) value
             type is (integer(int64))
                 allocate(character(20 * n + len(delimiter) * (n - 1)) :: buffer)
-                allocate(character(17 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+                allocate(character(17 + len(delimiter) + floor(log10(rtmp)) + 1) :: format)
 
                 write(format, '(a, i0, 3a)') '(ss, ', n, '(i0, :, "', delimiter, '"))'
                 write(buffer, format) value
             type is (logical)
                 allocate(character(1 * n + len(delimiter) * (n - 1)) :: buffer)
-                allocate(character(13 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+                allocate(character(13 + len(delimiter) + floor(log10(rtmp)) + 1) :: format)
 
                 write(format, '(a, i0, 3a)') '(', n, '(l1, :, "', delimiter, '"))'
                 write(buffer, format) value
@@ -579,10 +586,10 @@ contains
                 allocate(character(13 * n + len(delimiter) * (n - 1)) :: buffer)
 
                 if (maxval(abs(value)) < 1.0e5_real32) then
-                    allocate(character(20 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+                    allocate(character(20 + len(delimiter) + floor(log10(rtmp)) + 1) :: format)
                     write(format, '(a, i0, 3a)') '(ss, ', n, '(f13.6, :, "', delimiter, '"))'
                 else
-                    allocate(character(23 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+                    allocate(character(23 + len(delimiter) + floor(log10(rtmp)) + 1) :: format)
                     write(format, '(a, i0, 3a)') '(ss, ', n, '(es13.6e2, :, "', delimiter, '"))'
                 end if
 
@@ -591,10 +598,10 @@ contains
                 allocate(character(13 * n + len(delimiter) * (n - 1)) :: buffer)
 
                 if (maxval(abs(value)) < 1.0e5_real64) then
-                    allocate(character(20 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+                    allocate(character(20 + len(delimiter) + floor(log10(rtmp)) + 1) :: format)
                     write(format, '(a, i0, 3a)') '(ss, ', n, '(f13.6, :, "', delimiter, '"))'
                 else
-                    allocate(character(23 + len(delimiter) + floor(log10(real(n))) + 1) :: format)
+                    allocate(character(23 + len(delimiter) + floor(log10(rtmp)) + 1) :: format)
                     write(format, '(a, i0, 3a)') '(ss, ', n, '(es13.6e2, :, "', delimiter, '"))'
                 end if
 

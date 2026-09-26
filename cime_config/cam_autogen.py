@@ -749,6 +749,33 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                 # flag's own argument.
                 cmd += ["--preproc-defs=" + ",".join(preproc_defs)]
             # end if
+            if gpu_flag:
+                # Activate xdsl_ccpp's OpenACC data-movement-directive
+                # generation (GPUDataPass/GPUCcppCapPass) for any scheme
+                # .meta that declares memory_space=device (e.g. kessler).
+                # gpu_flag is case.get_value("OPENACC_GPU_OFFLOAD"), the
+                # same flag already used above for RRTMGP kernel selection,
+                # so this only ever fires for GPU-enabled cases -- every
+                # other case's generated cap is unaffected.
+                cmd += ["--directive", "acc"]
+                # Debugging aid: instrument every GPU data-movement op and
+                # module scalar with a host-vs-device diagnostic print
+                # (xdsl_ccpp's own --gpu-debug-prints), to directly observe
+                # device-side array sizes/scalar values when chasing a
+                # "PRESENT clause not found" failure. Left commented out
+                # (not removed) since it's easy to need again -- uncomment
+                # to re-enable.
+                # cmd += ["--gpu-debug-prints"]
+                # Debugging aid: emit an extra `update self(...)` right
+                # after every scheme call that writes a memory_space=device
+                # variable (xdsl_ccpp's own --gpu-debug-sync), so a plain
+                # host-memory tool with no OpenACC awareness (e.g.
+                # dropsonde) reads a live, correct value instead of a
+                # stale/uninitialized host mirror. Left commented out (not
+                # removed) since it's easy to need again -- uncomment to
+                # re-enable.
+                cmd += ["--gpu-debug-sync"]
+            # end if
             result = subprocess.run(cmd, capture_output=True, text=True,
                                     check=False)
             if result.stderr:
