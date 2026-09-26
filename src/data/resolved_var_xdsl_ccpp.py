@@ -47,6 +47,13 @@ def _to_resolved_var(record: dict) -> ResolvedVar:
         # surfaced here as is_host_table_var -- was hardcoded False through
         # Stage 4/6, since that distinction wasn't tracked at all before.
         is_host_table_var=bool(record.get("is_host_table_var")),
+        # Whole-DDT host variable exclusion (see resolved_var.py's is_ddt
+        # docstring) -- like is_host_table_var above, this is a real capgen-
+        # v1 parity gap: xdsl_ccpp's --emit-resolved-vars JSON doesn't yet
+        # report this distinction, so it's hardcoded False (safe default --
+        # just means this exclusion doesn't yet apply to xdsl_ccpp suites)
+        # until that emitter is updated to surface it.
+        is_ddt=bool(record.get("is_ddt")),
         is_optional=bool(record.get("is_optional")),
         host_module=record.get("model_module_name"),
         # Real capgen-v1's own adapter always reports the scheme's own
@@ -163,6 +170,16 @@ class XdslCcppResolvedVars:
     def call_list(self, phase: str) -> list:
         """Return the ResolvedVar list for one CCPP lifecycle phase."""
         return self._by_phase.get(phase, [])
+
+    def first_intent_by_suite(self) -> dict:
+        """xdsl_ccpp's --emit-resolved-vars JSON is organized strictly by
+        phase (self._by_phase above) -- it has no notion of suite grouping
+        or in-suite scheme call order at all. Stubbed to "no suite has any
+        set-before-use variable" (safe default: matches this feature's
+        total absence before it existed for either backend) until
+        xdsl_ccpp's emitter is updated to surface suite/scheme ordering.
+        """
+        return {}
 
     def resolve_by_standard_name(self, standard_name: str) -> "ResolvedVar | None":
         """Look up one variable by standard name, first in the per-phase

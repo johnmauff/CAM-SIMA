@@ -30,6 +30,13 @@ CCPP_PHASES = (
     "timestep_initial", "timestep_final", "run",
 )
 
+# Phases that run before the host ever calls physics_read_data -- shared by
+# any backend's first_intent_by_suite() implementation (backs
+# write_init_files.py's gather_set_before_use_vars): a variable a suite
+# only sets during one of these phases hasn't actually been set yet by the
+# time physics_read_data needs to decide whether to skip reading it.
+PRE_READ_PHASES = {"register", "initialize"}
+
 # Recognized horizontal/vertical dimension standard-name forms, ported
 # directly from capgen-v1's own var_props.py (CCPP_HORIZONTAL_DIMENSIONS/
 # CCPP_VERTICAL_DIMENSIONS + is_horizontal_dimension/is_vertical_dimension)
@@ -89,6 +96,14 @@ class ResolvedVar:
     # host_module=None and still not be a host-table var (e.g. a framework
     # var like ccpp_error_message, which is neither).
     is_host_table_var: bool = False
+    # True iff this variable is a whole-DDT-typed host variable (e.g. a
+    # scheme argument of DDT type such as ccpp_model_constituents_t) rather
+    # than a plain scalar/array or a DDT *sub-element* (VarDDT). A whole-DDT
+    # host variable cannot be read from initial-conditions files -- the host
+    # model initializes it at run time -- so write_init_files.py's
+    # _find_and_add_host_variable excludes it from generated read/check
+    # code. Defaults to False for backends that don't yet report it.
+    is_ddt: bool = False
     is_optional: bool = False
     # Fortran module to `use` this variable from, or None if there's no
     # host-variable binding at all (e.g. framework vars like ccpp_error_message).

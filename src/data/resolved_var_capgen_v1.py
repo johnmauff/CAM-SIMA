@@ -16,8 +16,9 @@ backend would get its own equally small adapter module alongside this one.
 # wherever that one runs.
 from var_props import is_horizontal_dimension, is_vertical_dimension
 from parse_source import CCPPError
+from ddt_library import VarDDT
 
-from resolved_var import ResolvedVar
+from resolved_var import ResolvedVar, PRE_READ_PHASES
 
 
 def _vertical_dim_name(dimensions):
@@ -77,6 +78,10 @@ def _to_resolved_var(var, host_dict) -> ResolvedVar:
         is_advected=bool(var.get_prop_value("advected")),
         is_constituent=bool(var.get_prop_value("constituent")),
         is_host_table_var=bool(var.host_interface_var),
+        # Matches write_init_files.py's own _find_and_add_host_variable
+        # check exactly: a whole-DDT host variable (not a VarDDT, which is
+        # instead a field *inside* a DDT and is handled separately).
+        is_ddt=bool(var.is_ddt() and not isinstance(var, VarDDT)),
         is_optional=bool(var.get_prop_value("optional")),
         # Populated regardless of is_host_table_var -- matching
         # write_init_files.py's real _get_host_model_import, which reads
@@ -151,6 +156,32 @@ class Capgenv1ResolvedVars:
             self._resolved(v)
             for v in self._cap_database.call_list(phase).variable_list()
         ]
+
+    def first_intent_by_suite(self) -> dict:
+        """Return, per suite, the intent of the first scheme argument (in
+        call order, across all groups whose phase is not in
+        PRE_READ_PHASES) to reference each standard name. Backs
+        write_init_files.py's gather_set_before_use_vars.
+        """
+        result = {}
+        for suite in self._cap_database.suite_list():
+            first_intent = {}
+            for group in suite.groups:
+                if group.phase() in PRE_READ_PHASES:
+                    continue
+                # end if
+                for scheme in group.schemes():
+                    for var in scheme.variable_list():
+                        stdname = var.get_prop_value('standard_name')
+                        if stdname not in first_intent:
+                            first_intent[stdname] = var.get_prop_value('intent')
+                        # end if
+                    # end for
+                # end for
+            # end for
+            result[suite.name] = first_intent
+        # end for
+        return result
 
     def resolve_by_standard_name(self, standard_name: str) -> "ResolvedVar | None":
         """Look up one variable by standard name in the full host-model
