@@ -35,7 +35,7 @@ sys.path.append(_REG_GEN_DIR)
 # Import needed registry and other src/data scripts:
 from generate_registry_data import gen_registry
 from write_init_files import write_init_files
-from resolved_var_capgen_v1 import Capgenv1ResolvedVars
+from resolved_var_capgen import Capgenv1ResolvedVars
 # resolved_var_xdsl_ccpp.py isn't imported here -- it pulls in xdsl_ccpp,
 # an optional dependency capgen builds must not require. Imported lazily
 # in generate_init_routines() only when xdsl_ccpp is actually selected.

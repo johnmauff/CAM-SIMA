@@ -15,7 +15,7 @@ from fortran_tools import FortranWriter
 
 # Backend-neutral ResolvedVar contract -- this module no longer imports
 # anything specific to the CCPP-framework implementation itself;
-# <resolved_vars> below is a small adapter (e.g. resolved_var_capgen_v1.py)
+# <resolved_vars> below is a small adapter (e.g. resolved_var_capgen.py)
 # exposing .call_list(phase) / .resolve_by_standard_name(name) over
 # whichever backend actually produced the suite caps.
 from resolved_var import CCPP_PHASES, is_horizontal_dimension, is_vertical_dimension
@@ -62,7 +62,7 @@ def write_init_files(resolved_vars, ic_names, registry_constituents, vars_init_v
 
     """
     Create the "phys_init" Fortran files using <resolved_vars>, a
-    backend-neutral ResolvedVar adapter (either resolved_var_capgen_v1.py's
+    backend-neutral ResolvedVar adapter (either resolved_var_capgen.py's
     or resolved_var_xdsl_ccpp.py's) wrapping whichever CCPP framework
     backend actually generated the suite caps.
     The two specific Fortran files are:

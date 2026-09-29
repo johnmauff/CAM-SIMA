@@ -51,7 +51,7 @@ def _to_resolved_var(record: dict) -> ResolvedVar:
         host_module=record.get("model_module_name"),
         # Real capgen's own adapter always reports the scheme's own
         # declared argument name here, regardless of host-match status
-        # (resolved_var_capgen_v1.py: var.get_prop_value("local_name")).
+        # (resolved_var_capgen.py: var.get_prop_value("local_name")).
         # model_var_name is only set when HostVariableMatchPass found an
         # actual host match, so it's None for e.g. a constituent-flagged
         # arg (never host-matched -- accessed via q(:,:,cidx) instead) or a

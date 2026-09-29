@@ -60,7 +60,7 @@ from ccpp_capgen import capgen
 from framework_env import CCPPFrameworkEnv
 from generate_registry_data import gen_registry
 import write_init_files as write_init
-from resolved_var_capgen_v1 import Capgenv1ResolvedVars
+from resolved_var_capgen import Capgenv1ResolvedVars
 # pylint: enable=wrong-import-position
 
 ###############################################################################

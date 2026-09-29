@@ -8,7 +8,7 @@ Defined once, here, so write_init_files.py's actual Fortran-generation
 logic never has to know whether the data came from real capgen's
 CCPPDatabaseObj/Var objects or from xdsl_ccpp's native
 --emit-resolved-vars JSON artifact -- each backend gets its own small
-adapter module (resolved_var_capgen_v1.py, resolved_var_xdsl_ccpp.py)
+adapter module (resolved_var_capgen.py, resolved_var_xdsl_ccpp.py)
 translating its own native shape into this one.
 
 Every field here corresponds to a property write_init_files.py's own
