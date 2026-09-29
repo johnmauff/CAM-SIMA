@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 """
-Adapter: translate xdsl_ccpp's --emit-resolved-vars JSON artifact
-(capgen_v1_parity_backlog.md Stage 3) into ResolvedVar records.
+Adapter: translate xdsl_ccpp's --emit-resolved-vars JSON artifact into
+ResolvedVar records.
 
 Lives here, in CAM-SIMA's own repo, rather than in xdsl_ccpp -- CAM-SIMA
 already depends on real ccpp-framework via its own submodule, so it's the
@@ -60,8 +60,7 @@ def _to_resolved_var(record: dict) -> ResolvedVar:
         # (e.g. write_init_files.py's write_ic_params) always get a real
         # local name to work with, matching capgen-v1 exactly.
         local_name=record.get("model_var_name") or record.get("arg_name"),
-        # capgen_v1_parity_backlog.md Post-Stage-7 (DDT-chain gap):
-        # suite_cap.py's _resolved_var_record already sets these two to
+        # DDT-chain gap: suite_cap.py's _resolved_var_record already sets these two to
         # model_var_name for every record (matching the pre-fix behavior
         # here exactly for a non-DDT arg); _apply_ddt_chain then overwrites
         # them in place for a DDT member match -- import_name becomes the
@@ -103,8 +102,8 @@ def _host_var_to_resolved_var(standard_name: str, entry: list) -> ResolvedVar:
     dimensions, or is_host_table_var/is_protected data survives the JSON
     round-trip for these entries -- so is_host_table_var/is_protected
     default to False here rather than being guessed. Every fixture this
-    fallback has been validated against (capgen_v1_parity_backlog.md
-    Post-Stage-7) is a MODULE-type index/dimension constant, for which
+    fallback has been validated against is a MODULE-type index/dimension
+    constant, for which
     those defaults are correct; revisit if a HOST-type or protected
     variable is ever reached only through this fallback.
     """
@@ -142,8 +141,7 @@ class XdslCcppResolvedVars:
         # recursive expansion write_init_files.py's real code already does
         # (_find_and_add_host_variable, _get_host_model_import). Only finds
         # names that happen to appear in at least one phase's own resolved
-        # list; self._host_vars below (capgen_v1_parity_backlog.md
-        # Post-Stage-7) is the fallback for a real host variable that's
+        # list; self._host_vars below is the fallback for a real host variable that's
         # never itself a scheme argument (e.g. a DDT member's own
         # array-section index variable), so never appears in any phase's
         # call list at all.
@@ -176,8 +174,7 @@ class XdslCcppResolvedVars:
 
     def resolve_by_standard_name(self, standard_name: str) -> "ResolvedVar | None":
         """Look up one variable by standard name, first in the per-phase
-        flat lookup, then (capgen_v1_parity_backlog.md Post-Stage-7) in the
-        full host-variable dictionary for names that never appear in any
+        flat lookup, then in the full host-variable dictionary for names that never appear in any
         phase's own call list -- backs the same recursive expansion
         write_init_files.py's real code does for DDT sub-elements and
         array-reference index variables (_find_and_add_host_variable,

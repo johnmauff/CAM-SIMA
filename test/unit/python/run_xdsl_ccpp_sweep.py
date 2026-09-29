@@ -7,9 +7,7 @@ test_write_init_files.py's fixtures, feeds the resulting JSON through
 XdslCcppResolvedVars, calls write_init_files(), and compares the output
 against the existing capgen-v1 golden files in sample_files/write_init_files/.
 
-This is the deferred Stage 8a verification from capgen_v1_parity_backlog.md.
-The 13-fixture "12/13 byte-identical" result was validated in that sandbox;
-this script makes that check repeatable and permanent here.
+This makes that comparison repeatable and permanent here.
 
 Usage:
     python run_xdsl_ccpp_sweep.py [-v]
