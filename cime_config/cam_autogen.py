@@ -36,15 +36,9 @@ sys.path.append(_REG_GEN_DIR)
 from generate_registry_data import gen_registry
 from write_init_files import write_init_files
 from resolved_var_capgen_v1 import Capgenv1ResolvedVars
-# capgen_v1_parity_backlog.md Stage 9: resolved_var_xdsl_ccpp.py (the
-# xdsl_ccpp-backed ResolvedVar adapter) is deliberately NOT imported here
-# alongside Capgenv1ResolvedVars above -- it transitively imports xdsl_ccpp
-# itself (a real, non-default dependency real capgen-v1 builds never need
-# installed), so importing it unconditionally at module load time would
-# break every CCPP_GENERATOR=capgen build (today's only real production
-# path) on any system without xdsl_ccpp installed. Imported instead inside
-# generate_init_routines()'s own xdsl_ccpp branch, only when that backend
-# is actually selected.
+# resolved_var_xdsl_ccpp.py isn't imported here -- it pulls in xdsl_ccpp,
+# an optional dependency capgen builds must not require. Imported lazily
+# in generate_init_routines() only when xdsl_ccpp is actually selected.
 
 ###############################################################################
 
@@ -668,30 +662,12 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
         # end for
 
         if ccpp_generator == "xdsl_ccpp":
-            # capgen_v1_parity_backlog.md Stage 9: subprocess, not xdsl_ccpp's
-            # Python API in-process -- ccpp_dsl.py's own error paths call
-            # sys.exit() directly rather than raising a catchable exception
-            # (this file's own "No CCPPError-equivalent exception type" gap,
-            # see that doc's "Smaller interface-shape gaps" note), so an
-            # in-process call could kill this entire CIME build with a bare
-            # exit code instead of a clean CamAutoGenError. A subprocess
-            # isolates that -- checked below like every other failure path
-            # in this file. Also matches capgen-v1's own stated convergence
-            # goal (CLI invocation preferred over a Python API).
+            # Subprocess, not in-process: ccpp_dsl.py's error paths call
+            # sys.exit() directly, which would otherwise kill this build.
             #
-            # preproc_defs is now passed through to xdsl_ccpp's own
-            # --preproc-defs flag (xdsl_ccpp/tools/ccpp_dsl.py): xdsl_ccpp
-            # gained a real CPP-preprocessing capability for the Fortran-vs-
-            # .meta cross-validation phase it runs internally
-            # (fortran_preprocess.py, mirroring capgen-v1's own
-            # PreprocStack design -- see capgen_v1_parity_backlog.md and the
-            # plan that introduced this). That validation phase is
-            # currently warn-only (mismatches are logged via this call's own
-            # stderr-to-_LOGGER.info forwarding below, never fatal) pending a
-            # full sweep across CAM-SIMA's real scheme tree -- so no
-            # CamAutoGenError is raised here anymore for a case whose
-            # CAM_CONFIG_OPTS sets preprocessor defines (-DSPMD, -DNP=4,
-            # -D_MPI, etc.).
+            # preproc_defs -> xdsl_ccpp's --preproc-defs (its own Fortran-
+            # vs-.meta cross-validation). Warn-only for now, pending a full
+            # sweep of CAM-SIMA's scheme tree, so this never raises here.
             resolved_vars_json = os.path.join(genccpp_dir, "resolved_vars.json")
             # XDSL_CCPP_PYTHON allows a venv Python to be specified when the
             # PBS job environment doesn't have the venv active.  Fall back to
@@ -710,10 +686,6 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                 _f.write(_xdsl_python)
             cmd = [
                 _xdsl_python, "-m", "xdsl_ccpp.tools.ccpp_dsl",
-                # xdsl_ccpp's own CLI takes one comma-joined string per
-                # file-list option, not a repeated flag (capgen_v1_parity_
-                # backlog.md's own "Smaller interface-shape gaps" note) --
-                # handled here, not pushed onto xdsl_ccpp itself.
                 "--host-files", ",".join(host_files),
                 "--scheme-files", ",".join(scheme_files),
                 "--suites", ",".join(sdfs),
@@ -722,63 +694,26 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                 "--tempdir", os.path.join(genccpp_dir, "tmp"),
                 "--emit-datatable", cap_output_file,
                 "--emit-resolved-vars", resolved_vars_json,
-                # CAM-SIMA's scheme .meta files declare horizontal_loop_extent
-                # (the legacy convention). xdsl_ccpp rejects this by default
-                # since the --legacy-mode gate was added (2026-08-13); pass
-                # the flag unconditionally until CAM-SIMA migrates vocabulary.
+                # CAM-SIMA's .meta files use the legacy horizontal_loop_extent
+                # convention.
                 "--legacy-mode",
-                # Generate CAM-SIMA-specific cam_ccpp_physics_* lifecycle
-                # wrappers (used by phys_comp.F90) -- gated so non-CAM
-                # builds (xdsl_ccpp's own examples/CI) don't need
-                # physics_types or physics_grid to be present.
+                # Generates cam_ccpp_physics_* lifecycle wrappers for phys_comp.F90.
                 "--cam-host",
-                # Supply the real ccpp_framework/src directory so the datatable
-                # lists the real framework F90 files (ccpp_constituent_prop_mod,
-                # ccpp_scheme_utils, ccpp_hashable, ccpp_hash_table) instead of
-                # xdsl_ccpp's own stubs -- required for the ccpp_model_constituents_t
-                # API to compile correctly.
                 "--framework-src-dir",
                 os.path.join(_CAM_ROOT_DIR, "ccpp_framework", "src"),
-                # CAM-SIMA host meta files (e.g. cam_control_mod.meta) use
-                # 'kind = r8' (= selected_real_kind(12,100) = REAL64 on all
-                # supported compilers). Map it to REAL64 so xdsl_ccpp can
-                # emit a valid ccpp_kinds.F90 public declaration for it.
+                # r8 = selected_real_kind(12,100) = REAL64 on all supported compilers.
                 "--kind-map", "r8:REAL64",
             ]
             if preproc_defs:
-                # "--flag=value" (one argv token), not ["--flag", "value"]:
-                # the joined value always starts with '-D' (CAM_CPPDEFS
-                # tokens are raw '-D'-prefixed strings), which argparse
-                # would otherwise mistake for a new option rather than this
-                # flag's own argument.
+                # Single token: values start with '-D', which argparse would
+                # otherwise mistake for a new flag if passed as two args.
                 cmd += ["--preproc-defs=" + ",".join(preproc_defs)]
             # end if
             if gpu_flag:
-                # Activate xdsl_ccpp's OpenACC data-movement-directive
-                # generation (GPUDataPass/GPUCcppCapPass) for any scheme
-                # .meta that declares memory_space=device (e.g. kessler).
-                # gpu_flag is case.get_value("OPENACC_GPU_OFFLOAD"), the
-                # same flag already used above for RRTMGP kernel selection,
-                # so this only ever fires for GPU-enabled cases -- every
-                # other case's generated cap is unaffected.
+                # OpenACC directives for memory_space=device scheme args.
                 cmd += ["--directive", "acc"]
-                # Debugging aid: instrument every GPU data-movement op and
-                # module scalar with a host-vs-device diagnostic print
-                # (xdsl_ccpp's own --gpu-debug-prints), to directly observe
-                # device-side array sizes/scalar values when chasing a
-                # "PRESENT clause not found" failure. Left commented out
-                # (not removed) since it's easy to need again -- uncomment
-                # to re-enable.
-                # cmd += ["--gpu-debug-prints"]
-                # Debugging aid: emit an extra `update self(...)` right
-                # after every scheme call that writes a memory_space=device
-                # variable (xdsl_ccpp's own --gpu-debug-sync), so a plain
-                # host-memory tool with no OpenACC awareness (e.g.
-                # dropsonde) reads a live, correct value instead of a
-                # stale/uninitialized host mirror. Left commented out (not
-                # removed) since it's easy to need again -- uncomment to
-                # re-enable.
-                cmd += ["--gpu-debug-sync"]
+                # cmd += ["--gpu-debug-prints"]  # per-op host/device diagnostic prints
+                # cmd += ["--gpu-debug-sync"]  # forces a device-vs-host sync after each write
             # end if
             result = subprocess.run(cmd, capture_output=True, text=True,
                                     check=False)
@@ -950,25 +885,15 @@ def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
         #   within write_init_files (so that write_init_files can be the place
         #   where the source include files are stored).
         source_paths = [source_mods_dir, _REG_GEN_DIR]
-        # write_init_files() consumes a backend-neutral ResolvedVar adapter,
-        # not a raw CCPPDatabaseObj, directly (see resolved_var.py).
-        # capgen_v1_parity_backlog.md Stage 9: two adapters now exist,
-        # selected by ccpp_generator -- they have genuinely different
-        # constructor shapes (a live database object vs. a JSON file path),
-        # so this is a real conditional, not a drop-in swap.
+        # write_init_files() consumes a backend-neutral ResolvedVar adapter
+        # (see resolved_var.py), not a raw CCPPDatabaseObj.
         if ccpp_generator == "xdsl_ccpp":
-            # Deferred import, not alongside Capgenv1ResolvedVars at the top
-            # of this file -- resolved_var_xdsl_ccpp.py transitively imports
-            # xdsl_ccpp itself, a real, non-default dependency a
-            # ccpp_generator=capgen build must never require. _REG_GEN_DIR
-            # (src/data, where this module lives) was removed from sys.path
-            # right after this file's own top-of-file imports, so it's
-            # restored here, symmetrically, only for this import.
+            # Deferred import (see note at top of file); _REG_GEN_DIR was
+            # removed from sys.path after this file's own imports, so it's
+            # restored here just for this one.
             #
-            # PBS job scripts don't inherit the venv, so xdsl_ccpp may not be
-            # importable in-process. Use the Python cached in genccpp_dir by
-            # generate_physics_suites (written at build time when the venv IS
-            # active) to discover and add the right paths to sys.path.
+            # PBS jobs don't inherit the venv; fall back to the interpreter
+            # cached by generate_physics_suites to locate xdsl_ccpp's paths.
             try:
                 import xdsl_ccpp as _xdsl_ccpp_probe  # noqa: F401
                 del _xdsl_ccpp_probe

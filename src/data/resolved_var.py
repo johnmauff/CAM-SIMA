@@ -37,15 +37,9 @@ CCPP_PHASES = (
 # time physics_read_data needs to decide whether to skip reading it.
 PRE_READ_PHASES = {"register", "initialize"}
 
-# Recognized horizontal/vertical dimension standard-name forms, ported
-# directly from capgen-v1's own var_props.py (CCPP_HORIZONTAL_DIMENSIONS/
-# CCPP_VERTICAL_DIMENSIONS + is_horizontal_dimension/is_vertical_dimension)
-# so write_init_files.py's own per-dimension classification (get_dimension_info's
-# unsupported-dimension detection) doesn't need a real-capgen-v1 import
-# either. This is a shared CCPP vocabulary convention, not backend-specific
-# logic -- xdsl_ccpp maintains its own independent copy of the same
-# convention in ccpp_conventions.py, reused by resolved_var_xdsl_ccpp.py the
-# same way resolved_var_capgen_v1.py reuses var_props.py's copy directly.
+# Recognized horizontal/vertical dimension standard-name forms, ported from
+# capgen-v1's var_props.py so write_init_files.py doesn't need a capgen-v1
+# import. xdsl_ccpp keeps its own independent copy in ccpp_conventions.py.
 _CCPP_HORIZONTAL_DIMENSIONS = [
     "ccpp_constant_one:horizontal_dimension",
     "ccpp_constant_one:horizontal_loop_extent",

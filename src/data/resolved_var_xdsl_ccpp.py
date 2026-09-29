@@ -41,18 +41,11 @@ def _to_resolved_var(record: dict) -> ResolvedVar:
         is_protected=bool(record.get("is_protected")),
         is_advected=bool(record.get("is_advected")),
         is_constituent=bool(record.get("is_constituent")),
-        # capgen_v1_parity_backlog.md Stage 7: xdsl_ccpp's
-        # HostVariableMatchPass now records whether a matched host var came
-        # from a HOST-type (vs MODULE-type) table (model_var_is_host_table),
-        # surfaced here as is_host_table_var -- was hardcoded False through
-        # Stage 4/6, since that distinction wasn't tracked at all before.
+        # Whether the matched host var came from a HOST-type table
+        # (model_var_is_host_table); was hardcoded False before this.
         is_host_table_var=bool(record.get("is_host_table_var")),
-        # Whole-DDT host variable exclusion (see resolved_var.py's is_ddt
-        # docstring) -- like is_host_table_var above, this is a real capgen-
-        # v1 parity gap: xdsl_ccpp's --emit-resolved-vars JSON doesn't yet
-        # report this distinction, so it's hardcoded False (safe default --
-        # just means this exclusion doesn't yet apply to xdsl_ccpp suites)
-        # until that emitter is updated to surface it.
+        # xdsl_ccpp's JSON doesn't report this yet, so it's hardcoded False
+        # (safe: this exclusion just doesn't apply to xdsl_ccpp suites yet).
         is_ddt=bool(record.get("is_ddt")),
         is_optional=bool(record.get("is_optional")),
         host_module=record.get("model_module_name"),
