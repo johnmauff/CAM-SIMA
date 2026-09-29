@@ -504,15 +504,9 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
        - The pathname of the CCPP Framework database
        - A list of CCPP namelist groups to add to atm_in
 
-    <ccpp_generator> selects the CCPP cap-generation backend: 'capgen'
-    (default, real capgen-v1 -- CAM-SIMA's only production path today) or
-    'xdsl_ccpp' (evaluation).
-    The fifth return value (named capgen_db here for the 'capgen' path) is
-    a real CCPPDatabaseObj for 'capgen', or the path to a
-    --emit-resolved-vars JSON file for 'xdsl_ccpp' -- callers must pass
-    <ccpp_generator> through to generate_init_routines() to construct the
-    matching ResolvedVar adapter, not infer the backend from this value's
-    own type.
+    <ccpp_generator> is 'capgen' (default) or 'xdsl_ccpp'; the fifth
+    return value's type depends on it (CCPPDatabaseObj vs. a JSON path),
+    so callers must pass <ccpp_generator> through rather than infer it.
     """
 
     # Physics source gets copied into blddir
@@ -849,12 +843,7 @@ def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
     and/or script).
 
     <ccpp_generator> ('capgen' or 'xdsl_ccpp') selects which ResolvedVar
-    adapter wraps <cap_database> -- for
-    'xdsl_ccpp', <cap_database> is actually a --emit-resolved-vars JSON
-    path (see generate_physics_suites()'s own docstring), not a real
-    CCPPDatabaseObj. Passed explicitly rather than inferred from
-    <cap_database>'s own type, since explicit is safer than type-sniffing
-    across a cross-backend branch like this.
+    adapter wraps <cap_database> (a CCPPDatabaseObj vs. a JSON path).
     """
 
     # Add new directory to build path:

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-xdsl_ccpp write_init_files sweep script (Stage 8a deferred validation).
+xdsl_ccpp write_init_files sweep script.
 
 Runs xdsl_ccpp's --emit-resolved-vars CLI against each of
 test_write_init_files.py's fixtures, feeds the resulting JSON through
 XdslCcppResolvedVars, calls write_init_files(), and compares the output
-against the existing capgen-v1 golden files in sample_files/write_init_files/.
+against the existing capgen golden files in sample_files/write_init_files/.
 
 This makes that comparison repeatable and permanent here.
 

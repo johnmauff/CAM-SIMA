@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Adapter: translate real capgen-v1's CCPPDatabaseObj/Var objects into
+Adapter: translate real capgen's CCPPDatabaseObj/Var objects into
 ResolvedVar records.
 
 Lives here, in CAM-SIMA's own repo, rather than in ccpp-framework -- this
@@ -10,7 +10,7 @@ about a specific CCPP-framework implementation's native shape. Any other
 backend would get its own equally small adapter module alongside this one.
 """
 
-# capgen-v1's own dimension-standard-name classification -- reused rather
+# capgen's own dimension-standard-name classification -- reused rather
 # than re-implemented here. Already imported the same way by
 # write_init_files.py's real code, so this module is already on the path
 # wherever that one runs.
@@ -105,7 +105,7 @@ def _to_resolved_var(var, host_dict) -> ResolvedVar:
         import_name=var.var.get_prop_value("local_name"),
         # Full call-site expression -- resolves DDT chains ("phys_state%
         # theta") and array-ref indices ("foo(bar)") via host_dict, exactly
-        # matching what real capgen-v1's own generated Fortran emits at a
+        # matching what real capgen's own generated Fortran emits at a
         # call site. Reduces to local_name for every plain scalar/array var.
         call_expr=var.call_string(host_dict),
         dimensions=dimensions,
@@ -120,7 +120,7 @@ def _to_resolved_var(var, host_dict) -> ResolvedVar:
 
 
 class Capgenv1ResolvedVars:
-    """Wraps a real capgen-v1 CCPPDatabaseObj and exposes it as ResolvedVar
+    """Wraps a real capgen CCPPDatabaseObj and exposes it as ResolvedVar
     records, matching the shape write_init_files.py's consumption code
     expects from any backend.
     """
@@ -130,7 +130,7 @@ class Capgenv1ResolvedVars:
         self._host_dict = cap_database.host_model_dict()
         # Cache ResolvedVar construction keyed by the underlying real Var
         # object's identity (Var has no __eq__/__hash__ override, so this
-        # is plain identity hashing) -- real capgen-v1 returns the *same*
+        # is plain identity hashing) -- real capgen returns the *same*
         # Var instance from repeated find_variable()/call_list() lookups of
         # the same variable (e.g. an inout var appearing in both a phase's
         # input and output roles), and write_init_files() itself dedupes

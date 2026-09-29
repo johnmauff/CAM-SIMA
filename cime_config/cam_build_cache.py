@@ -503,11 +503,10 @@ class BuildCacheCAM:
         Determine if the CCPP input data differs from the data stored in
         our cache. Return True if the data differs.
 
-        <ccpp_generator> is included in the mismatch check (Copilot review,
-        johnmauff/CAM-SIMA#2): without this, switching CCPP_GENERATOR on an
-        existing build with otherwise-unchanged inputs would leave
-        do_gen_ccpp False, silently reusing caps produced by the previous
-        generator instead of regenerating with the newly-selected one.
+        <ccpp_generator> is included in the mismatch check: without it,
+        switching CCPP_GENERATOR on an existing build with otherwise-
+        unchanged inputs would leave do_gen_ccpp False, silently reusing
+        caps from the previous generator instead of regenerating.
         """
         mismatch = ((not self.__preproc_defs) or
                     (self.__preproc_defs != preproc_defs) or

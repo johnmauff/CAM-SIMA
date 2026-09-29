@@ -316,7 +316,7 @@ def _find_and_add_host_variable(stdname, resolved_vars, var_dict):
     hvar = resolved_vars.resolve_by_standard_name(stdname)
     # A ResolvedVar with no local_name has no host binding at all (see
     # resolved_var.py's docstring) -- functionally the same as "not found"
-    # for this function's purposes. Real capgen-v1's Var objects always
+    # for this function's purposes. Real capgen's Var objects always
     # have a local_name whenever find_variable() returns non-None, so this
     # never triggers today; it guards against a future adapter resolving a
     # name to a var it can't actually bind to a host identifier, which

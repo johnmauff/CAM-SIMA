@@ -4,13 +4,9 @@ XdslCcppResolvedVars adapter -- translates xdsl_ccpp's own
 --emit-resolved-vars JSON artifact into the backend-neutral ResolvedVar
 records write_init_files.py consumes (see resolved_var.py).
 
-Flagged by Copilot review (johnmauff/CAM-SIMA#2): this adapter had no
-test coverage at all, unlike resolved_var_capgen_v1.py (covered throughout
-test_write_init_files.py). These tests build the JSON directly (as a
-temp file) rather than running the real xdsl_ccpp CLI, since they only
-need to exercise this adapter's own translation logic -- not
-re-verify xdsl_ccpp's own generator, which is xdsl-ccpp-fresh's own
-test suite's job.
+These tests build the JSON directly (as a temp file) rather than running
+the real xdsl_ccpp CLI, since they only need to exercise this adapter's
+own translation logic, not xdsl_ccpp's own generator.
 
 To run these unit tests, simply type:
 

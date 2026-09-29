@@ -23,7 +23,7 @@ from xdsl_ccpp.util.ccpp_conventions import is_horizontal_dimension, is_vertical
 
 def _vertical_dim_name(dim_names):
     """Return 'lev'/'ilev' for the recognized vertical dimension in
-    dim_names, matching capgen-v1's own local-name convention for these
+    dim_names, matching capgen's own local-name convention for these
     two standard dimensions (see write_init_files.py's get_dimension_info),
     or None if there isn't one.
     """
@@ -49,7 +49,7 @@ def _to_resolved_var(record: dict) -> ResolvedVar:
         is_ddt=bool(record.get("is_ddt")),
         is_optional=bool(record.get("is_optional")),
         host_module=record.get("model_module_name"),
-        # Real capgen-v1's own adapter always reports the scheme's own
+        # Real capgen's own adapter always reports the scheme's own
         # declared argument name here, regardless of host-match status
         # (resolved_var_capgen_v1.py: var.get_prop_value("local_name")).
         # model_var_name is only set when HostVariableMatchPass found an
@@ -58,7 +58,7 @@ def _to_resolved_var(record: dict) -> ResolvedVar:
         # genuine SuiteOwned/interstitial arg with no host match at all.
         # Fall back to the scheme's own arg_name in that case so callers
         # (e.g. write_init_files.py's write_ic_params) always get a real
-        # local name to work with, matching capgen-v1 exactly.
+        # local name to work with, matching capgen exactly.
         local_name=record.get("model_var_name") or record.get("arg_name"),
         # DDT-chain gap: suite_cap.py's _resolved_var_record already sets these two to
         # model_var_name for every record (matching the pre-fix behavior
@@ -78,11 +78,9 @@ def _to_resolved_var(record: dict) -> ResolvedVar:
         # every other record's own base default is an empty list ([] ->
         # None here, matching ResolvedVar's own "can't derive this, leave
         # None" convention). intrinsic_element_names has no xdsl_ccpp-side
-        # producer at all yet (DDT *array expansion*, not member/subscript
-        # resolution -- a different capability; see capgen_v1_parity_
-        # backlog.md Stage 4) -- every fixture validated through Stage 7
-        # needed only member/subscript resolution, not array expansion, so
-        # this stays None until a fixture actually exercises that path.
+        # producer yet (DDT *array expansion*, not member/subscript
+        # resolution -- a different capability), so this stays None until
+        # a fixture actually exercises that path.
         array_ref_dims=record.get("array_ref_dims") or None,
         intrinsic_element_names=None,
     )

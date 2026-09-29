@@ -674,8 +674,7 @@ class CamAutoGenTestRoutine(unittest.TestCase):
         Check that "generate_physics_suites" fails loudly, rather than
         silently ignoring them, if preproc_defs are set for
         ccpp_generator='xdsl_ccpp' -- xdsl_ccpp has no CPP-preprocessing
-        capability for .meta files yet (Copilot review,
-        johnmauff/CAM-SIMA#2).
+        capability for .meta files yet.
         """
 
         #Copy test files into test SourceMods directory:

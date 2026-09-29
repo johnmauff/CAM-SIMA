@@ -5,7 +5,7 @@ ResolvedVar: a backend-neutral description of one variable required by a
 CCPP suite at one lifecycle phase.
 
 Defined once, here, so write_init_files.py's actual Fortran-generation
-logic never has to know whether the data came from real capgen-v1's
+logic never has to know whether the data came from real capgen's
 CCPPDatabaseObj/Var objects or from xdsl_ccpp's native
 --emit-resolved-vars JSON artifact -- each backend gets its own small
 adapter module (resolved_var_capgen_v1.py, resolved_var_xdsl_ccpp.py)
@@ -20,11 +20,10 @@ write_ic_params/write_ic_arrays), not guessed.
 
 from dataclasses import dataclass, field
 
-# The six CCPP suite lifecycle phases, in the order capgen-v1's own
-# CCPP_STATE_MACH.transitions() returns them (confirmed directly against
-# ccpp_state_machine.py, not guessed) -- kept here as a plain constant
-# rather than importing ccpp_state_machine so write_init_files.py doesn't
-# need a real-capgen-v1 import just to iterate over phase names.
+# The six CCPP suite lifecycle phases, in the order capgen's own
+# CCPP_STATE_MACH.transitions() returns them -- kept here as a plain
+# constant so write_init_files.py doesn't need a real-capgen import
+# just to iterate over phase names.
 CCPP_PHASES = (
     "register", "initialize", "finalize",
     "timestep_initial", "timestep_final", "run",
@@ -38,7 +37,7 @@ CCPP_PHASES = (
 PRE_READ_PHASES = {"register", "initialize"}
 
 # Recognized horizontal/vertical dimension standard-name forms, ported from
-# capgen-v1's var_props.py so write_init_files.py doesn't need a capgen-v1
+# capgen's var_props.py so write_init_files.py doesn't need a capgen
 # import. xdsl_ccpp keeps its own independent copy in ccpp_conventions.py.
 _CCPP_HORIZONTAL_DIMENSIONS = [
     "ccpp_constant_one:horizontal_dimension",
@@ -70,7 +69,7 @@ def is_vertical_dimension(dim_name):
 class ResolvedVar:
     """One variable required by a suite at one CCPP lifecycle phase.
 
-    eq=False: identity-based equality/hashing, matching real capgen-v1's
+    eq=False: identity-based equality/hashing, matching real capgen's
     own Var class (which has no __eq__/__hash__ override either) --
     write_init_files.py's own write_init_files() dedupes required-variable
     lists via OrderedDict.fromkeys(), which needs hashable, identity-
@@ -109,7 +108,7 @@ class ResolvedVar:
     # scalar/array var this is also what's used at the Fortran call site.
     # For a DDT sub-element (e.g. "theta", a field of "phys_state"), this is
     # the *leaf* field's own bare name, distinct from both import_name and
-    # call_expr below -- confirmed against real capgen-v1's VarDDT, which
+    # call_expr below -- confirmed against real capgen's VarDDT, which
     # keeps these three genuinely different (get_prop_value('local_name')
     # delegates to the leaf field; call_string() builds the full chain; the
     # root var's own name is reached only via the separate `.var` property).

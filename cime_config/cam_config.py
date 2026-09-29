@@ -190,8 +190,7 @@ class ConfigCAM:
         self.__bldroot  = os.path.join(exeroot, "atm", "obj")
         self.__atm_name = case.get_value("COMP_ATM")
         self.__gpu_flag = case.get_value("OPENACC_GPU_OFFLOAD") #Returns a Boolean
-        # CCPP cap-generation backend -- 'capgen' (default, production) or
-        # 'xdsl_ccpp' (evaluation).
+        # CCPP cap-generation backend: 'capgen' (default) or 'xdsl_ccpp'.
         self.__ccpp_generator = case.get_value("CCPP_GENERATOR")
 
         # Save CPP definitions as a list:
