@@ -1,0 +1,5 @@
+./xmlchange GPU_TYPE=a100
+./xmlchange OPENACC_GPU_OFFLOAD=TRUE
+./xmlchange OVERSUBSCRIBE_GPU=TRUE
+./xmlchange NGPUS_PER_NODE=4
+./xmlchange CAM_CONFIG_OPTS="--dyn none --physics-suites kessler_test"

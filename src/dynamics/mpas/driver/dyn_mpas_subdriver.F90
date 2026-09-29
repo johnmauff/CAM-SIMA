@@ -326,6 +326,56 @@ module dyn_mpas_subdriver
     ]
 contains
     !-------------------------------------------------------------------------------
+    ! function my_adjustl
+    !
+    !> summary: Hand-rolled replacement for the `adjustl` intrinsic.
+    !>
+    !> Works around a confirmed nvfortran ILM/symbol-table bug (present in both
+    !> 25.9 and 26.1) triggered when the `adjustl` intrinsic is called from two or
+    !> more subroutines within this module (`dyn_mpas_read_namelist` and
+    !> `dyn_mpas_define_scalar`), causing "ILM file: can't find intrinsic adjustl"
+    !> internal compiler errors. A naive wrapper that simply calls the intrinsic
+    !> internally, or one whose result length depends on the input argument's
+    !> length (`character(len(str))`), still triggers a related nvfortran lowering
+    !> crash -- the fixed-length result (`character(StrKIND)`) below avoids both.
+    !> StrKIND (512) is far larger than any string used with this function in this
+    !> module, so this is behaviorally identical to the intrinsic for all call sites
+    !> here: `trim(my_adjustl(x))` strips all trailing blanks regardless of the
+    !> fixed buffer size, and any assignment into a shorter-length variable
+    !> truncates/pads exactly as it would with the real intrinsic's result.
+    !>
+    !> CAUTION: because the result is always StrKIND-length (unlike the real
+    !> intrinsic, whose result length matches the argument's), never concatenate
+    !> onto the *untrimmed* result (e.g. `my_adjustl(x) // ':suffix'`) -- trim()
+    !> immediately, before concatenating (`trim(my_adjustl(x)) // ':suffix'`).
+    !> Getting this backwards once caused a real bug: a `mpas_pool_add_config`
+    !> key ended up hundreds of characters longer than intended, silently losing
+    !> its ':packages' suffix and leaving fields like `cellsOnVertex` unread.
+    !
+    !-------------------------------------------------------------------------------
+    elemental function my_adjustl(str) result(r)
+        character(*), intent(in) :: str
+        character(strkind) :: r
+        integer :: n, i, first_nonblank
+
+        n = len(str)
+        first_nonblank = 0
+
+        do i = 1, n
+            if (str(i:i) /= ' ') then
+                first_nonblank = i
+                exit
+            end if
+        end do
+
+        if (first_nonblank == 0) then
+            r = str
+        else
+            r = str(first_nonblank:n)
+        end if
+    end function my_adjustl
+
+    !-------------------------------------------------------------------------------
     ! subroutine dyn_mpas_debug_print
     !
     !> summary: Print a debug message at a debug level.
@@ -425,7 +475,7 @@ contains
 
         if (ierr /= 0) then
             call self % model_error('Failed to allocate corelist' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -437,7 +487,7 @@ contains
 
         if (ierr /= 0) then
             call self % model_error('Failed to allocate corelist % domainlist' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -518,12 +568,12 @@ contains
         nullify(config_pointer_c)
         nullify(config_pointer_l)
 
-        call self % debug_print(log_level_info, 'Reading namelist at "' // trim(adjustl(namelist_path)) // '"')
+        call self % debug_print(log_level_info, 'Reading namelist at "' // trim(my_adjustl(namelist_path)) // '"')
 
         ! Override namelist filename so that we can rely on upstream MPAS functionality for reading its own namelist.
         ! The case of missing namelist groups (i.e., `iostat == iostat_end` or `iostat == iostat_eor`) will be handled gracefully.
         ! All namelist variables will have reasonable default values even if they are missing.
-        self % domain_ptr % namelist_filename = trim(adjustl(namelist_path))
+        self % domain_ptr % namelist_filename = trim(my_adjustl(namelist_path))
 
         ierr = self % domain_ptr % core % setup_namelist( &
             self % domain_ptr % configs, self % domain_ptr % namelist_filename, self % domain_ptr % dminfo)
@@ -541,7 +591,7 @@ contains
         ! CAM-SIMA seems to follow "NetCDF Climate and Forecast (CF) Metadata Conventions" for calendar names. See
         ! CF-1.12, section "4.4.2. Calendar", in doi:10.5281/zenodo.14275599.
         ! However, this is not the case for MPAS. Translate calendar names between CF and MPAS.
-        select case (trim(adjustl(cf_calendar)))
+        select case (trim(my_adjustl(cf_calendar)))
             case ('360_day')
                 mpas_calendar = '360day'
             case ('365_day', 'noleap')
@@ -550,13 +600,13 @@ contains
                 ! "gregorian" is a deprecated alternative name for "standard".
                 mpas_calendar = 'gregorian'
             case default
-                call self % model_error('Unsupported calendar type "' // trim(adjustl(cf_calendar)) // '"', &
+                call self % model_error('Unsupported calendar type "' // trim(my_adjustl(cf_calendar)) // '"', &
                     subname, __LINE__)
         end select
 
         call self % get_variable_pointer(config_pointer_c, 'cfg', 'config_calendar_type')
 
-        config_pointer_c = trim(adjustl(mpas_calendar))
+        config_pointer_c = trim(my_adjustl(mpas_calendar))
         call self % debug_print(log_level_debug, 'config_calendar_type = ' // trim(config_pointer_c))
         nullify(config_pointer_c)
 
@@ -621,7 +671,7 @@ contains
         use mpas_framework, only: mpas_framework_init_phase2
         use mpas_stream_inquiry, only: mpas_stream_inquiry_new_streaminfo
 
-        class(mpas_dynamical_core_type), intent(in) :: self
+        class(mpas_dynamical_core_type), intent(inout) :: self
         type(iosystem_desc_t), pointer, intent(in) :: pio_iosystem
 
         character(*), parameter :: subname = 'dyn_mpas_subdriver::dyn_mpas_init_phase2'
@@ -744,7 +794,7 @@ contains
 
         call self % get_variable_pointer(config_les_model, 'cfg', 'config_les_model')
 
-        self % les_model = (trim(adjustl(config_les_model)) /= 'none')
+        self % les_model = (trim(my_adjustl(config_les_model)) /= 'none')
 
         nullify(config_les_model)
 
@@ -917,7 +967,7 @@ contains
 
         if (ierr /= 0) then
             call self % model_error('Failed to allocate constituent_name' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -933,7 +983,7 @@ contains
 
         if (ierr /= 0) then
             call self % model_error('Failed to allocate is_water_species' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -983,16 +1033,16 @@ contains
                 call self % model_error('Mismatch between numbers of constituents and their names', subname, __LINE__)
             end if
 
-            if (any(len_trim(adjustl(constituent_name)) > len(self % constituent_name))) then
+            if (any(len_trim(my_adjustl(constituent_name)) > len(self % constituent_name))) then
                 call self % model_error('Constituent names are too long', subname, __LINE__)
             end if
 
-            if (any(len_trim(adjustl(input_alias)) > len(self % input_alias))) then
+            if (any(len_trim(my_adjustl(input_alias)) > len(self % input_alias))) then
                 call self % model_error('Input aliases are too long', subname, __LINE__)
             end if
 
-            self % constituent_name(:) = adjustl(constituent_name)
-            self % input_alias(:) = adjustl(input_alias)
+            self % constituent_name(:) = my_adjustl(constituent_name)
+            self % input_alias(:) = my_adjustl(input_alias)
             self % is_water_species(:) = is_water_species(:)
 
             if (size(self % constituent_name) /= size(index_unique(self % constituent_name))) then
@@ -1054,7 +1104,7 @@ contains
 
         if (ierr /= 0) then
             call self % model_error('Failed to allocate index_mpas_scalar_to_constituent' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -1078,7 +1128,7 @@ contains
 
         if (ierr /= 0) then
             call self % model_error('Failed to allocate index_constituent_to_mpas_scalar' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -1211,7 +1261,7 @@ contains
 
             do j = 1, self % number_of_constituents
                 field_3d_real % constituentnames(j) = &
-                    trim(adjustl(self % constituent_name(self % index_mpas_scalar_to_constituent(j))))
+                    trim(my_adjustl(self % constituent_name(self % index_mpas_scalar_to_constituent(j))))
 
                 ! Print information about MPAS scalars. Only do it once.
                 if (i == 1) then
@@ -1290,7 +1340,7 @@ contains
 
             do j = 1, self % number_of_constituents
                 field_3d_real % constituentnames(j) = &
-                    'tendency_of_' // trim(adjustl(self % constituent_name(self % index_mpas_scalar_to_constituent(j))))
+                    'tendency_of_' // trim(my_adjustl(self % constituent_name(self % index_mpas_scalar_to_constituent(j))))
 
                 ! Print information about MPAS scalar tendencies. Only do it once.
                 if (i == 1) then
@@ -1356,26 +1406,26 @@ contains
         nullify(mpas_pool)
         nullify(mpas_stream)
 
-        call self % debug_print(log_level_info, 'Initializing stream "' // trim(adjustl(stream_name)) // '"')
+        call self % debug_print(log_level_info, 'Initializing stream "' // trim(my_adjustl(stream_name)) // '"')
 
         call self % init_stream_with_pool(mpas_pool, mpas_stream, pio_file, stream_mode, stream_name)
 
         if (.not. associated(mpas_pool)) then
-            call self % model_error('Failed to initialize stream "' // trim(adjustl(stream_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to initialize stream "' // trim(my_adjustl(stream_name)) // '"', subname, __LINE__)
         end if
 
         if (.not. associated(mpas_stream)) then
-            call self % model_error('Failed to initialize stream "' // trim(adjustl(stream_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to initialize stream "' // trim(my_adjustl(stream_name)) // '"', subname, __LINE__)
         end if
 
-        select case (trim(adjustl(stream_mode)))
+        select case (trim(my_adjustl(stream_mode)))
             case ('r', 'read')
-                call self % debug_print(log_level_info, 'Reading stream "' // trim(adjustl(stream_name)) // '"')
+                call self % debug_print(log_level_info, 'Reading stream "' // trim(my_adjustl(stream_name)) // '"')
 
                 call mpas_readstream(mpas_stream, 1, ierr=ierr)
 
                 if (ierr /= mpas_stream_noerr) then
-                    call self % model_error('Failed to read stream "' // trim(adjustl(stream_name)) // '"', subname, __LINE__)
+                    call self % model_error('Failed to read stream "' // trim(my_adjustl(stream_name)) // '"', subname, __LINE__)
                 end if
 
                 ! Exchange halo layers because new data have just been read.
@@ -1389,7 +1439,7 @@ contains
                 call postread_reindex(self % domain_ptr % blocklist % allfields, self % domain_ptr % packages, &
                     mpas_pool, mpas_pool)
             case ('w', 'write')
-                call self % debug_print(log_level_info, 'Writing stream "' // trim(adjustl(stream_name)) // '"')
+                call self % debug_print(log_level_info, 'Writing stream "' // trim(my_adjustl(stream_name)) // '"')
 
                 ! WARNING:
                 ! The `{pre,post}write_reindex` subroutines are STATEFUL because they store information inside their module
@@ -1402,21 +1452,21 @@ contains
                 call mpas_writestream(mpas_stream, 1, ierr=ierr)
 
                 if (ierr /= mpas_stream_noerr) then
-                    call self % model_error('Failed to write stream "' // trim(adjustl(stream_name)) // '"', subname, __LINE__)
+                    call self % model_error('Failed to write stream "' // trim(my_adjustl(stream_name)) // '"', subname, __LINE__)
                 end if
 
                 ! For any connectivity arrays in this stream, reset global indexes back to local indexes.
                 call postwrite_reindex(self % domain_ptr % blocklist % allfields, mpas_pool)
             case default
-                call self % model_error('Unsupported stream mode "' // trim(adjustl(stream_mode)) // '"', subname, __LINE__)
+                call self % model_error('Unsupported stream mode "' // trim(my_adjustl(stream_mode)) // '"', subname, __LINE__)
         end select
 
-        call self % debug_print(log_level_info, 'Closing stream "' // trim(adjustl(stream_name)) // '"')
+        call self % debug_print(log_level_info, 'Closing stream "' // trim(my_adjustl(stream_name)) // '"')
 
         call mpas_closestream(mpas_stream, ierr=ierr)
 
         if (ierr /= mpas_stream_noerr) then
-            call self % model_error('Failed to close stream "' // trim(adjustl(stream_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to close stream "' // trim(my_adjustl(stream_name)) // '"', subname, __LINE__)
         end if
 
         ! Deallocate temporary pointers to avoid memory leaks.
@@ -1514,8 +1564,8 @@ contains
         allocate(mpas_stream, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate stream "' // trim(adjustl(stream_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate stream "' // trim(my_adjustl(stream_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -1533,27 +1583,27 @@ contains
             call self % model_error('Invalid PIO file descriptor', subname, __LINE__)
         end if
 
-        select case (trim(adjustl(stream_mode)))
+        select case (trim(my_adjustl(stream_mode)))
             case ('r', 'read')
-                call self % debug_print(log_level_verbose, 'Creating stream "' // trim(adjustl(stream_name)) // '" for reading')
+                call self % debug_print(log_level_verbose, 'Creating stream "' // trim(my_adjustl(stream_name)) // '" for reading')
 
                 call mpas_createstream( &
                     mpas_stream, self % domain_ptr % iocontext, stream_filename, stream_format, mpas_io_read,  &
                     clobberrecords=.false., clobberfiles=.false., truncatefiles=.false., &
                     precision=mpas_io_native_precision, pio_file_desc=pio_file, ierr=ierr)
             case ('w', 'write')
-                call self % debug_print(log_level_verbose, 'Creating stream "' // trim(adjustl(stream_name)) // '" for writing')
+                call self % debug_print(log_level_verbose, 'Creating stream "' // trim(my_adjustl(stream_name)) // '" for writing')
 
                 call mpas_createstream( &
                     mpas_stream, self % domain_ptr % iocontext, stream_filename, stream_format, mpas_io_write, &
                     clobberrecords=.false., clobberfiles=.false., truncatefiles=.false., &
                     precision=mpas_io_native_precision, pio_file_desc=pio_file, ierr=ierr)
             case default
-                call self % model_error('Unsupported stream mode "' // trim(adjustl(stream_mode)) // '"', subname, __LINE__)
+                call self % model_error('Unsupported stream mode "' // trim(my_adjustl(stream_mode)) // '"', subname, __LINE__)
         end select
 
         if (ierr /= mpas_stream_noerr) then
-            call self % model_error('Failed to create stream "' // trim(adjustl(stream_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to create stream "' // trim(my_adjustl(stream_name)) // '"', subname, __LINE__)
         end if
 
         var_info_list = parse_stream_name(stream_name)
@@ -1567,21 +1617,21 @@ contains
             call self % debug_print(log_level_debug, 'var_info_list(' // stringify([i]) // ') % rank = ' // &
                 stringify([var_info_list(i) % rank]))
 
-            if (trim(adjustl(stream_mode)) == 'r' .or. trim(adjustl(stream_mode)) == 'read') then
+            if (trim(my_adjustl(stream_mode)) == 'r' .or. trim(my_adjustl(stream_mode)) == 'read') then
                 call self % check_variable_status(var_is_present, var_is_tkr_compatible, pio_file, var_info_list(i))
 
                 ! Do not hard crash the model if a variable is missing and cannot be read.
                 ! This can happen if users attempt to initialize/restart the model with data generated by
                 ! older versions of MPAS. Print a debug message to let users decide if this is acceptable.
                 if (.not. any(var_is_present)) then
-                    call self % debug_print(log_level_verbose, 'Skipping variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                    call self % debug_print(log_level_verbose, 'Skipping variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                         '" due to not present')
 
                     cycle
                 end if
 
                 if (any(var_is_present .and. .not. var_is_tkr_compatible)) then
-                    call self % debug_print(log_level_verbose, 'Skipping variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                    call self % debug_print(log_level_verbose, 'Skipping variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                         '" due to not TKR compatible')
 
                     cycle
@@ -1590,24 +1640,24 @@ contains
 
             ! Add "<variable name>" to pool with the value of `1`.
             ! The existence of "<variable name>" in pool causes it to be considered for IO in MPAS.
-            call mpas_pool_add_config(mpas_pool, trim(adjustl(var_info_list(i) % name)), 1)
+            call mpas_pool_add_config(mpas_pool, trim(my_adjustl(var_info_list(i) % name)), 1)
             ! Add "<variable name>:packages" to pool with the value of an empty character string.
             ! This causes "<variable name>" to be always considered active for IO in MPAS.
-            call mpas_pool_add_config(mpas_pool, trim(adjustl(var_info_list(i) % name) // ':packages'), '')
+            call mpas_pool_add_config(mpas_pool, trim(my_adjustl(var_info_list(i) % name)) // ':packages', '')
 
             ! Add "<variable name>" to stream.
-            call self % debug_print(log_level_verbose, 'Adding variable "' // trim(adjustl(var_info_list(i) % name)) // &
-                '" to stream "' // trim(adjustl(stream_name)) // '"')
+            call self % debug_print(log_level_verbose, 'Adding variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
+                '" to stream "' // trim(my_adjustl(stream_name)) // '"')
 
-            select case (trim(adjustl(var_info_list(i) % type)))
+            select case (trim(my_adjustl(var_info_list(i) % type)))
                 case ('character')
                     select case (var_info_list(i) % rank)
                         case (0)
                             call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                                trim(adjustl(var_info_list(i) % name)), field_0d_char, timelevel=1)
+                                trim(my_adjustl(var_info_list(i) % name)), field_0d_char, timelevel=1)
 
                             if (.not. associated(field_0d_char)) then
-                                call self % model_error('Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                                call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                                     '"', subname, __LINE__)
                             end if
 
@@ -1616,10 +1666,10 @@ contains
                             nullify(field_0d_char)
                         case (1)
                             call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                                trim(adjustl(var_info_list(i) % name)), field_1d_char, timelevel=1)
+                                trim(my_adjustl(var_info_list(i) % name)), field_1d_char, timelevel=1)
 
                             if (.not. associated(field_1d_char)) then
-                                call self % model_error('Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                                call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                                     '"', subname, __LINE__)
                             end if
 
@@ -1628,16 +1678,16 @@ contains
                             nullify(field_1d_char)
                         case default
                             call self % model_error('Unsupported variable rank ' // stringify([var_info_list(i) % rank]) // &
-                                ' for "' // trim(adjustl(var_info_list(i) % name)) // '"', subname, __LINE__)
+                                ' for "' // trim(my_adjustl(var_info_list(i) % name)) // '"', subname, __LINE__)
                     end select
                 case ('integer')
                     select case (var_info_list(i) % rank)
                         case (0)
                             call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                                trim(adjustl(var_info_list(i) % name)), field_0d_integer, timelevel=1)
+                                trim(my_adjustl(var_info_list(i) % name)), field_0d_integer, timelevel=1)
 
                             if (.not. associated(field_0d_integer)) then
-                                call self % model_error('Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                                call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                                     '"', subname, __LINE__)
                             end if
 
@@ -1646,10 +1696,10 @@ contains
                             nullify(field_0d_integer)
                         case (1)
                             call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                                trim(adjustl(var_info_list(i) % name)), field_1d_integer, timelevel=1)
+                                trim(my_adjustl(var_info_list(i) % name)), field_1d_integer, timelevel=1)
 
                             if (.not. associated(field_1d_integer)) then
-                                call self % model_error('Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                                call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                                     '"', subname, __LINE__)
                             end if
 
@@ -1658,10 +1708,10 @@ contains
                             nullify(field_1d_integer)
                         case (2)
                             call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                                trim(adjustl(var_info_list(i) % name)), field_2d_integer, timelevel=1)
+                                trim(my_adjustl(var_info_list(i) % name)), field_2d_integer, timelevel=1)
 
                             if (.not. associated(field_2d_integer)) then
-                                call self % model_error('Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                                call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                                     '"', subname, __LINE__)
                             end if
 
@@ -1670,10 +1720,10 @@ contains
                             nullify(field_2d_integer)
                         case (3)
                             call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                                trim(adjustl(var_info_list(i) % name)), field_3d_integer, timelevel=1)
+                                trim(my_adjustl(var_info_list(i) % name)), field_3d_integer, timelevel=1)
 
                             if (.not. associated(field_3d_integer)) then
-                                call self % model_error('Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                                call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                                     '"', subname, __LINE__)
                             end if
 
@@ -1682,16 +1732,16 @@ contains
                             nullify(field_3d_integer)
                         case default
                             call self % model_error('Unsupported variable rank ' // stringify([var_info_list(i) % rank]) // &
-                                ' for "' // trim(adjustl(var_info_list(i) % name)) // '"', subname, __LINE__)
+                                ' for "' // trim(my_adjustl(var_info_list(i) % name)) // '"', subname, __LINE__)
                     end select
                 case ('real')
                     select case (var_info_list(i) % rank)
                         case (0)
                             call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                                trim(adjustl(var_info_list(i) % name)), field_0d_real, timelevel=1)
+                                trim(my_adjustl(var_info_list(i) % name)), field_0d_real, timelevel=1)
 
                             if (.not. associated(field_0d_real)) then
-                                call self % model_error('Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                                call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                                     '"', subname, __LINE__)
                             end if
 
@@ -1700,10 +1750,10 @@ contains
                             nullify(field_0d_real)
                         case (1)
                             call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                                trim(adjustl(var_info_list(i) % name)), field_1d_real, timelevel=1)
+                                trim(my_adjustl(var_info_list(i) % name)), field_1d_real, timelevel=1)
 
                             if (.not. associated(field_1d_real)) then
-                                call self % model_error('Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                                call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                                     '"', subname, __LINE__)
                             end if
 
@@ -1712,10 +1762,10 @@ contains
                             nullify(field_1d_real)
                         case (2)
                             call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                                trim(adjustl(var_info_list(i) % name)), field_2d_real, timelevel=1)
+                                trim(my_adjustl(var_info_list(i) % name)), field_2d_real, timelevel=1)
 
                             if (.not. associated(field_2d_real)) then
-                                call self % model_error('Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                                call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                                     '"', subname, __LINE__)
                             end if
 
@@ -1724,10 +1774,10 @@ contains
                             nullify(field_2d_real)
                         case (3)
                             call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                                trim(adjustl(var_info_list(i) % name)), field_3d_real, timelevel=1)
+                                trim(my_adjustl(var_info_list(i) % name)), field_3d_real, timelevel=1)
 
                             if (.not. associated(field_3d_real)) then
-                                call self % model_error('Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                                call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                                     '"', subname, __LINE__)
                             end if
 
@@ -1736,10 +1786,10 @@ contains
                             nullify(field_3d_real)
                         case (4)
                             call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                                trim(adjustl(var_info_list(i) % name)), field_4d_real, timelevel=1)
+                                trim(my_adjustl(var_info_list(i) % name)), field_4d_real, timelevel=1)
 
                             if (.not. associated(field_4d_real)) then
-                                call self % model_error('Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                                call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                                     '"', subname, __LINE__)
                             end if
 
@@ -1748,10 +1798,10 @@ contains
                             nullify(field_4d_real)
                         case (5)
                             call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                                trim(adjustl(var_info_list(i) % name)), field_5d_real, timelevel=1)
+                                trim(my_adjustl(var_info_list(i) % name)), field_5d_real, timelevel=1)
 
                             if (.not. associated(field_5d_real)) then
-                                call self % model_error('Failed to find variable "' // trim(adjustl(var_info_list(i) % name)) // &
+                                call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
                                     '"', subname, __LINE__)
                             end if
 
@@ -1760,20 +1810,20 @@ contains
                             nullify(field_5d_real)
                         case default
                             call self % model_error('Unsupported variable rank ' // stringify([var_info_list(i) % rank]) // &
-                                ' for "' // trim(adjustl(var_info_list(i) % name)) // '"', subname, __LINE__)
+                                ' for "' // trim(my_adjustl(var_info_list(i) % name)) // '"', subname, __LINE__)
                     end select
                 case default
-                    call self % model_error('Unsupported variable type "' // trim(adjustl(var_info_list(i) % type)) // &
-                        '" for "' // trim(adjustl(var_info_list(i) % name)) // '"', subname, __LINE__)
+                    call self % model_error('Unsupported variable type "' // trim(my_adjustl(var_info_list(i) % type)) // &
+                        '" for "' // trim(my_adjustl(var_info_list(i) % name)) // '"', subname, __LINE__)
             end select
 
             if (ierr /= mpas_stream_noerr) then
-                call self % model_error('Failed to add variable "' // trim(adjustl(var_info_list(i) % name)) // &
-                    '" to stream "' // trim(adjustl(stream_name)) // '"', subname, __LINE__)
+                call self % model_error('Failed to add variable "' // trim(my_adjustl(var_info_list(i) % name)) // &
+                    '" to stream "' // trim(my_adjustl(stream_name)) // '"', subname, __LINE__)
             end if
         end do
 
-        if (trim(adjustl(stream_mode)) == 'w' .or. trim(adjustl(stream_mode)) == 'write') then
+        if (trim(my_adjustl(stream_mode)) == 'w' .or. trim(my_adjustl(stream_mode)) == 'write') then
             ! Add MPAS-specific attributes to stream.
 
             ! Attributes related to MPAS core (i.e., `core_type`).
@@ -1805,37 +1855,37 @@ contains
             character(*), intent(in) :: attribute_name
             class(*), intent(in) :: attribute_value
 
-            call self % debug_print(log_level_verbose, 'Adding attribute "' // trim(adjustl(attribute_name)) // &
-                '" to stream "' // trim(adjustl(stream_name)) // '"')
+            call self % debug_print(log_level_verbose, 'Adding attribute "' // trim(my_adjustl(attribute_name)) // &
+                '" to stream "' // trim(my_adjustl(stream_name)) // '"')
 
             select type (attribute_value)
                 type is (character(*))
                     call mpas_writestreamatt(mpas_stream, &
-                        trim(adjustl(attribute_name)), trim(adjustl(attribute_value)), syncval=.false., ierr=ierr)
+                        trim(my_adjustl(attribute_name)), trim(my_adjustl(attribute_value)), syncval=.false., ierr=ierr)
                 type is (integer)
                     call mpas_writestreamatt(mpas_stream, &
-                        trim(adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
+                        trim(my_adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
                 type is (logical)
                     if (attribute_value) then
                         ! Logical `.true.` becomes character string "YES".
                         call mpas_writestreamatt(mpas_stream, &
-                            trim(adjustl(attribute_name)), 'YES', syncval=.false., ierr=ierr)
+                            trim(my_adjustl(attribute_name)), 'YES', syncval=.false., ierr=ierr)
                     else
                         ! Logical `.false.` becomes character string "NO".
                         call mpas_writestreamatt(mpas_stream, &
-                            trim(adjustl(attribute_name)), 'NO', syncval=.false., ierr=ierr)
+                            trim(my_adjustl(attribute_name)), 'NO', syncval=.false., ierr=ierr)
                     end if
                 type is (real(rkind))
                     call mpas_writestreamatt(mpas_stream, &
-                        trim(adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
+                        trim(my_adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
                 class default
                     call self % model_error('Unsupported attribute type (Must be one of: character, integer, logical, real)', &
                         subname, __LINE__)
             end select
 
             if (ierr /= mpas_stream_noerr) then
-                call self % model_error('Failed to add attribute "' // trim(adjustl(attribute_name)) // &
-                    '" to stream "' // trim(adjustl(stream_name)) // '"', subname, __LINE__)
+                call self % model_error('Failed to add attribute "' // trim(my_adjustl(attribute_name)) // &
+                    '" to stream "' // trim(my_adjustl(stream_name)) // '"', subname, __LINE__)
             end if
         end subroutine add_stream_attribute_0d
 
@@ -1848,24 +1898,24 @@ contains
             character(*), intent(in) :: attribute_name
             class(*), intent(in) :: attribute_value(:)
 
-            call self % debug_print(log_level_verbose, 'Adding attribute "' // trim(adjustl(attribute_name)) // &
-                '" to stream "' // trim(adjustl(stream_name)) // '"')
+            call self % debug_print(log_level_verbose, 'Adding attribute "' // trim(my_adjustl(attribute_name)) // &
+                '" to stream "' // trim(my_adjustl(stream_name)) // '"')
 
             select type (attribute_value)
                 type is (integer)
                     call mpas_writestreamatt(mpas_stream, &
-                        trim(adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
+                        trim(my_adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
                 type is (real(rkind))
                     call mpas_writestreamatt(mpas_stream, &
-                        trim(adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
+                        trim(my_adjustl(attribute_name)), attribute_value, syncval=.false., ierr=ierr)
                 class default
                     call self % model_error('Unsupported attribute type (Must be one of: integer, real)', &
                         subname, __LINE__)
             end select
 
             if (ierr /= mpas_stream_noerr) then
-                call self % model_error('Failed to add attribute "' // trim(adjustl(attribute_name)) // &
-                    '" to stream "' // trim(adjustl(stream_name)) // '"', subname, __LINE__)
+                call self % model_error('Failed to add attribute "' // trim(my_adjustl(attribute_name)) // &
+                    '" to stream "' // trim(my_adjustl(stream_name)) // '"', subname, __LINE__)
             end if
         end subroutine add_stream_attribute_1d
     end subroutine dyn_mpas_init_stream_with_pool
@@ -1929,7 +1979,7 @@ contains
         character(len(invariant_var_info_list % name)), allocatable :: var_name_list(:)
         type(var_info_type), allocatable :: var_info_list_buffer(:)
 
-        select case (trim(adjustl(stream_name_fragment)))
+        select case (trim(my_adjustl(stream_name_fragment)))
             case ('')
                 allocate(var_info_list(0))
             case ('invariant')
@@ -1947,29 +1997,29 @@ contains
 
                 var_name_list = invariant_var_info_list % name
 
-                if (any(var_name_list == trim(adjustl(stream_name_fragment)))) then
-                    var_info_list_buffer = pack(invariant_var_info_list, var_name_list == trim(adjustl(stream_name_fragment)))
+                if (any(var_name_list == trim(my_adjustl(stream_name_fragment)))) then
+                    var_info_list_buffer = pack(invariant_var_info_list, var_name_list == trim(my_adjustl(stream_name_fragment)))
                     var_info_list = [var_info_list, var_info_list_buffer]
                 end if
 
                 var_name_list = input_var_info_list % name
 
-                if (any(var_name_list == trim(adjustl(stream_name_fragment)))) then
-                    var_info_list_buffer = pack(input_var_info_list, var_name_list == trim(adjustl(stream_name_fragment)))
+                if (any(var_name_list == trim(my_adjustl(stream_name_fragment)))) then
+                    var_info_list_buffer = pack(input_var_info_list, var_name_list == trim(my_adjustl(stream_name_fragment)))
                     var_info_list = [var_info_list, var_info_list_buffer]
                 end if
 
                 var_name_list = restart_var_info_list % name
 
-                if (any(var_name_list == trim(adjustl(stream_name_fragment)))) then
-                    var_info_list_buffer = pack(restart_var_info_list, var_name_list == trim(adjustl(stream_name_fragment)))
+                if (any(var_name_list == trim(my_adjustl(stream_name_fragment)))) then
+                    var_info_list_buffer = pack(restart_var_info_list, var_name_list == trim(my_adjustl(stream_name_fragment)))
                     var_info_list = [var_info_list, var_info_list_buffer]
                 end if
 
                 var_name_list = output_var_info_list % name
 
-                if (any(var_name_list == trim(adjustl(stream_name_fragment)))) then
-                    var_info_list_buffer = pack(output_var_info_list, var_name_list == trim(adjustl(stream_name_fragment)))
+                if (any(var_name_list == trim(my_adjustl(stream_name_fragment)))) then
+                    var_info_list_buffer = pack(output_var_info_list, var_name_list == trim(my_adjustl(stream_name_fragment)))
                     var_info_list = [var_info_list, var_info_list_buffer]
                 end if
 
@@ -2055,15 +2105,15 @@ contains
         ! Extract a list of variable names to check on the file.
         ! For an ordinary variable, this list just contains its name.
         ! For a variable array, this list contains the names of its constituent parts.
-        select case (trim(adjustl(var_info % type)))
+        select case (trim(my_adjustl(var_info % type)))
             case ('character')
                 select case (var_info % rank)
                     case (0)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(var_info % name)), field_0d_char, timelevel=1)
+                            trim(my_adjustl(var_info % name)), field_0d_char, timelevel=1)
 
                         if (.not. associated(field_0d_char)) then
-                            call self % model_error('Failed to find variable "' // trim(adjustl(var_info % name)) // &
+                            call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info % name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2072,7 +2122,7 @@ contains
 
                             if (ierr /= 0) then
                                 call self % model_error('Failed to allocate var_name_list' // new_line('') // &
-                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                                     subname, __LINE__)
                             end if
 
@@ -2082,10 +2132,10 @@ contains
                         nullify(field_0d_char)
                     case (1)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(var_info % name)), field_1d_char, timelevel=1)
+                            trim(my_adjustl(var_info % name)), field_1d_char, timelevel=1)
 
                         if (.not. associated(field_1d_char)) then
-                            call self % model_error('Failed to find variable "' // trim(adjustl(var_info % name)) // &
+                            call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info % name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2094,7 +2144,7 @@ contains
 
                             if (ierr /= 0) then
                                 call self % model_error('Failed to allocate var_name_list' // new_line('') // &
-                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                                     subname, __LINE__)
                             end if
 
@@ -2104,16 +2154,16 @@ contains
                         nullify(field_1d_char)
                     case default
                         call self % model_error('Unsupported variable rank ' // stringify([var_info % rank]) // &
-                            ' for "' // trim(adjustl(var_info % name)) // '"', subname, __LINE__)
+                            ' for "' // trim(my_adjustl(var_info % name)) // '"', subname, __LINE__)
                 end select
             case ('integer')
                 select case (var_info % rank)
                     case (0)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(var_info % name)), field_0d_integer, timelevel=1)
+                            trim(my_adjustl(var_info % name)), field_0d_integer, timelevel=1)
 
                         if (.not. associated(field_0d_integer)) then
-                            call self % model_error('Failed to find variable "' // trim(adjustl(var_info % name)) // &
+                            call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info % name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2122,7 +2172,7 @@ contains
 
                             if (ierr /= 0) then
                                 call self % model_error('Failed to allocate var_name_list' // new_line('') // &
-                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                                     subname, __LINE__)
                             end if
 
@@ -2132,10 +2182,10 @@ contains
                         nullify(field_0d_integer)
                     case (1)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(var_info % name)), field_1d_integer, timelevel=1)
+                            trim(my_adjustl(var_info % name)), field_1d_integer, timelevel=1)
 
                         if (.not. associated(field_1d_integer)) then
-                            call self % model_error('Failed to find variable "' // trim(adjustl(var_info % name)) // &
+                            call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info % name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2144,7 +2194,7 @@ contains
 
                             if (ierr /= 0) then
                                 call self % model_error('Failed to allocate var_name_list' // new_line('') // &
-                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                                     subname, __LINE__)
                             end if
 
@@ -2154,10 +2204,10 @@ contains
                         nullify(field_1d_integer)
                     case (2)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(var_info % name)), field_2d_integer, timelevel=1)
+                            trim(my_adjustl(var_info % name)), field_2d_integer, timelevel=1)
 
                         if (.not. associated(field_2d_integer)) then
-                            call self % model_error('Failed to find variable "' // trim(adjustl(var_info % name)) // &
+                            call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info % name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2166,7 +2216,7 @@ contains
 
                             if (ierr /= 0) then
                                 call self % model_error('Failed to allocate var_name_list' // new_line('') // &
-                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                                     subname, __LINE__)
                             end if
 
@@ -2176,10 +2226,10 @@ contains
                         nullify(field_2d_integer)
                     case (3)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(var_info % name)), field_3d_integer, timelevel=1)
+                            trim(my_adjustl(var_info % name)), field_3d_integer, timelevel=1)
 
                         if (.not. associated(field_3d_integer)) then
-                            call self % model_error('Failed to find variable "' // trim(adjustl(var_info % name)) // &
+                            call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info % name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2188,7 +2238,7 @@ contains
 
                             if (ierr /= 0) then
                                 call self % model_error('Failed to allocate var_name_list' // new_line('') // &
-                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                                     subname, __LINE__)
                             end if
 
@@ -2198,16 +2248,16 @@ contains
                         nullify(field_3d_integer)
                     case default
                         call self % model_error('Unsupported variable rank ' // stringify([var_info % rank]) // &
-                            ' for "' // trim(adjustl(var_info % name)) // '"', subname, __LINE__)
+                            ' for "' // trim(my_adjustl(var_info % name)) // '"', subname, __LINE__)
                 end select
             case ('real')
                 select case (var_info % rank)
                     case (0)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(var_info % name)), field_0d_real, timelevel=1)
+                            trim(my_adjustl(var_info % name)), field_0d_real, timelevel=1)
 
                         if (.not. associated(field_0d_real)) then
-                            call self % model_error('Failed to find variable "' // trim(adjustl(var_info % name)) // &
+                            call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info % name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2216,7 +2266,7 @@ contains
 
                             if (ierr /= 0) then
                                 call self % model_error('Failed to allocate var_name_list' // new_line('') // &
-                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                                     subname, __LINE__)
                             end if
 
@@ -2226,10 +2276,10 @@ contains
                         nullify(field_0d_real)
                     case (1)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(var_info % name)), field_1d_real, timelevel=1)
+                            trim(my_adjustl(var_info % name)), field_1d_real, timelevel=1)
 
                         if (.not. associated(field_1d_real)) then
-                            call self % model_error('Failed to find variable "' // trim(adjustl(var_info % name)) // &
+                            call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info % name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2238,7 +2288,7 @@ contains
 
                             if (ierr /= 0) then
                                 call self % model_error('Failed to allocate var_name_list' // new_line('') // &
-                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                                     subname, __LINE__)
                             end if
 
@@ -2248,10 +2298,10 @@ contains
                         nullify(field_1d_real)
                     case (2)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(var_info % name)), field_2d_real, timelevel=1)
+                            trim(my_adjustl(var_info % name)), field_2d_real, timelevel=1)
 
                         if (.not. associated(field_2d_real)) then
-                            call self % model_error('Failed to find variable "' // trim(adjustl(var_info % name)) // &
+                            call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info % name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2260,7 +2310,7 @@ contains
 
                             if (ierr /= 0) then
                                 call self % model_error('Failed to allocate var_name_list' // new_line('') // &
-                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                                     subname, __LINE__)
                             end if
 
@@ -2270,10 +2320,10 @@ contains
                         nullify(field_2d_real)
                     case (3)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(var_info % name)), field_3d_real, timelevel=1)
+                            trim(my_adjustl(var_info % name)), field_3d_real, timelevel=1)
 
                         if (.not. associated(field_3d_real)) then
-                            call self % model_error('Failed to find variable "' // trim(adjustl(var_info % name)) // &
+                            call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info % name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2282,7 +2332,7 @@ contains
 
                             if (ierr /= 0) then
                                 call self % model_error('Failed to allocate var_name_list' // new_line('') // &
-                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                                     subname, __LINE__)
                             end if
 
@@ -2292,10 +2342,10 @@ contains
                         nullify(field_3d_real)
                     case (4)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(var_info % name)), field_4d_real, timelevel=1)
+                            trim(my_adjustl(var_info % name)), field_4d_real, timelevel=1)
 
                         if (.not. associated(field_4d_real)) then
-                            call self % model_error('Failed to find variable "' // trim(adjustl(var_info % name)) // &
+                            call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info % name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2304,7 +2354,7 @@ contains
 
                             if (ierr /= 0) then
                                 call self % model_error('Failed to allocate var_name_list' // new_line('') // &
-                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                                     subname, __LINE__)
                             end if
 
@@ -2314,10 +2364,10 @@ contains
                         nullify(field_4d_real)
                     case (5)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(var_info % name)), field_5d_real, timelevel=1)
+                            trim(my_adjustl(var_info % name)), field_5d_real, timelevel=1)
 
                         if (.not. associated(field_5d_real)) then
-                            call self % model_error('Failed to find variable "' // trim(adjustl(var_info % name)) // &
+                            call self % model_error('Failed to find variable "' // trim(my_adjustl(var_info % name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2326,7 +2376,7 @@ contains
 
                             if (ierr /= 0) then
                                 call self % model_error('Failed to allocate var_name_list' // new_line('') // &
-                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                                     subname, __LINE__)
                             end if
 
@@ -2336,11 +2386,11 @@ contains
                         nullify(field_5d_real)
                     case default
                         call self % model_error('Unsupported variable rank ' // stringify([var_info % rank]) // &
-                            ' for "' // trim(adjustl(var_info % name)) // '"', subname, __LINE__)
+                            ' for "' // trim(my_adjustl(var_info % name)) // '"', subname, __LINE__)
                 end select
             case default
-                call self % model_error('Unsupported variable type "' // trim(adjustl(var_info % type)) // &
-                    '" for "' // trim(adjustl(var_info % name)) // '"', subname, __LINE__)
+                call self % model_error('Unsupported variable type "' // trim(my_adjustl(var_info % type)) // &
+                    '" for "' // trim(my_adjustl(var_info % name)) // '"', subname, __LINE__)
         end select
 
         if (.not. allocated(var_name_list)) then
@@ -2348,7 +2398,7 @@ contains
 
             if (ierr /= 0) then
                 call self % model_error('Failed to allocate var_name_list' // new_line('') // &
-                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                    'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                     subname, __LINE__)
             end if
 
@@ -2359,7 +2409,7 @@ contains
 
         if (ierr /= 0) then
             call self % model_error('Failed to allocate var_is_present' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -2369,7 +2419,7 @@ contains
 
         if (ierr /= 0) then
             call self % model_error('Failed to allocate var_is_tkr_compatible' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -2383,12 +2433,12 @@ contains
             return
         end if
 
-        call self % debug_print(log_level_verbose, 'Checking variable "' // trim(adjustl(var_info % name)) // &
+        call self % debug_print(log_level_verbose, 'Checking variable "' // trim(my_adjustl(var_info % name)) // &
             '" for presence and TKR compatibility')
 
         do i = 1, size(var_name_list)
             ! Check if the variable is present on the file.
-            ierr = pio_inq_varid(pio_file, trim(adjustl(var_name_list(i))), varid)
+            ierr = pio_inq_varid(pio_file, trim(my_adjustl(var_name_list(i))), varid)
 
             if (ierr /= pio_noerr) then
                 cycle
@@ -2403,7 +2453,7 @@ contains
                 cycle
             end if
 
-            select case (trim(adjustl(var_info % type)))
+            select case (trim(my_adjustl(var_info % type)))
                 case ('character')
                     if (vartype /= pio_char) then
                         cycle
@@ -2495,36 +2545,36 @@ contains
         nullify(field_4d_real)
         nullify(field_5d_real)
 
-        call self % debug_print(log_level_info, 'Inquiring field information for "' // trim(adjustl(field_name)) // '"')
+        call self % debug_print(log_level_info, 'Inquiring field information for "' // trim(my_adjustl(field_name)) // '"')
 
         call mpas_pool_get_field_info(self % domain_ptr % blocklist % allfields, &
-            trim(adjustl(field_name)), mpas_pool_field_info)
+            trim(my_adjustl(field_name)), mpas_pool_field_info)
 
         if (mpas_pool_field_info % fieldtype == -1 .or. &
             mpas_pool_field_info % ndims == -1 .or. &
             mpas_pool_field_info % nhalolayers == -1) then
-            call self % model_error('Invalid field information for "' // trim(adjustl(field_name)) // '"', subname, __LINE__)
+            call self % model_error('Invalid field information for "' // trim(my_adjustl(field_name)) // '"', subname, __LINE__)
         end if
 
         ! No halo layers to exchange. This field is not decomposed.
         if (mpas_pool_field_info % nhalolayers == 0) then
-            call self % debug_print(log_level_info, 'Skipping field "' // trim(adjustl(field_name)) // &
+            call self % debug_print(log_level_info, 'Skipping field "' // trim(my_adjustl(field_name)) // &
                 '" due to not decomposed')
 
             return
         end if
 
-        call self % debug_print(log_level_info, 'Exchanging halo layers for "' // trim(adjustl(field_name)) // '"')
+        call self % debug_print(log_level_info, 'Exchanging halo layers for "' // trim(my_adjustl(field_name)) // '"')
 
         select case (mpas_pool_field_info % fieldtype)
             case (mpas_pool_integer)
                 select case (mpas_pool_field_info % ndims)
                     case (1)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(field_name)), field_1d_integer, timelevel=1)
+                            trim(my_adjustl(field_name)), field_1d_integer, timelevel=1)
 
                         if (.not. associated(field_1d_integer)) then
-                            call self % model_error('Failed to find field "' // trim(adjustl(field_name)) // &
+                            call self % model_error('Failed to find field "' // trim(my_adjustl(field_name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2533,10 +2583,10 @@ contains
                         nullify(field_1d_integer)
                     case (2)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(field_name)), field_2d_integer, timelevel=1)
+                            trim(my_adjustl(field_name)), field_2d_integer, timelevel=1)
 
                         if (.not. associated(field_2d_integer)) then
-                            call self % model_error('Failed to find field "' // trim(adjustl(field_name)) // &
+                            call self % model_error('Failed to find field "' // trim(my_adjustl(field_name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2545,10 +2595,10 @@ contains
                         nullify(field_2d_integer)
                     case (3)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(field_name)), field_3d_integer, timelevel=1)
+                            trim(my_adjustl(field_name)), field_3d_integer, timelevel=1)
 
                         if (.not. associated(field_3d_integer)) then
-                            call self % model_error('Failed to find field "' // trim(adjustl(field_name)) // &
+                            call self % model_error('Failed to find field "' // trim(my_adjustl(field_name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2563,10 +2613,10 @@ contains
                 select case (mpas_pool_field_info % ndims)
                     case (1)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(field_name)), field_1d_real, timelevel=1)
+                            trim(my_adjustl(field_name)), field_1d_real, timelevel=1)
 
                         if (.not. associated(field_1d_real)) then
-                            call self % model_error('Failed to find field "' // trim(adjustl(field_name)) // &
+                            call self % model_error('Failed to find field "' // trim(my_adjustl(field_name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2575,10 +2625,10 @@ contains
                         nullify(field_1d_real)
                     case (2)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(field_name)), field_2d_real, timelevel=1)
+                            trim(my_adjustl(field_name)), field_2d_real, timelevel=1)
 
                         if (.not. associated(field_2d_real)) then
-                            call self % model_error('Failed to find field "' // trim(adjustl(field_name)) // &
+                            call self % model_error('Failed to find field "' // trim(my_adjustl(field_name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2587,10 +2637,10 @@ contains
                         nullify(field_2d_real)
                     case (3)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(field_name)), field_3d_real, timelevel=1)
+                            trim(my_adjustl(field_name)), field_3d_real, timelevel=1)
 
                         if (.not. associated(field_3d_real)) then
-                            call self % model_error('Failed to find field "' // trim(adjustl(field_name)) // &
+                            call self % model_error('Failed to find field "' // trim(my_adjustl(field_name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2599,10 +2649,10 @@ contains
                         nullify(field_3d_real)
                     case (4)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(field_name)), field_4d_real, timelevel=1)
+                            trim(my_adjustl(field_name)), field_4d_real, timelevel=1)
 
                         if (.not. associated(field_4d_real)) then
-                            call self % model_error('Failed to find field "' // trim(adjustl(field_name)) // &
+                            call self % model_error('Failed to find field "' // trim(my_adjustl(field_name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2611,10 +2661,10 @@ contains
                         nullify(field_4d_real)
                     case (5)
                         call mpas_pool_get_field(self % domain_ptr % blocklist % allfields, &
-                            trim(adjustl(field_name)), field_5d_real, timelevel=1)
+                            trim(my_adjustl(field_name)), field_5d_real, timelevel=1)
 
                         if (.not. associated(field_5d_real)) then
-                            call self % model_error('Failed to find field "' // trim(adjustl(field_name)) // &
+                            call self % model_error('Failed to find field "' // trim(my_adjustl(field_name)) // &
                                 '"', subname, __LINE__)
                         end if
 
@@ -2893,7 +2943,7 @@ contains
 
         if (ierr /= 0) then
             call self % model_error('Failed to allocate cell_relative_vorticity' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -3246,7 +3296,7 @@ contains
             call self % model_error('Failed to get time for "mpas_now"', subname, __LINE__)
         end if
 
-        call self % debug_print(log_level_info, 'Time integration of MPAS dynamical core begins at ' // trim(adjustl(date_time)))
+        call self % debug_print(log_level_info, 'Time integration of MPAS dynamical core begins at ' // trim(my_adjustl(date_time)))
 
         call mpas_set_timeinterval(mpas_time_interval, s=self % coupling_time_interval, ierr=ierr)
 
@@ -3292,7 +3342,7 @@ contains
             call self % model_error('Failed to get time for "mpas_now"', subname, __LINE__)
         end if
 
-        call self % debug_print(log_level_info, 'Time integration of MPAS dynamical core ends at ' // trim(adjustl(date_time)))
+        call self % debug_print(log_level_info, 'Time integration of MPAS dynamical core ends at ' // trim(my_adjustl(date_time)))
 
         ! Compute diagnostic variables like "pressure", "rho", and "theta" from time level 1 of MPAS "state" pool
         ! by calling upstream MPAS functionality.
@@ -3500,7 +3550,7 @@ contains
             return
         end if
 
-        constituent_name = trim(adjustl(self % constituent_name(constituent_index)))
+        constituent_name = trim(my_adjustl(self % constituent_name(constituent_index)))
     end function dyn_mpas_get_constituent_name
 
     !-------------------------------------------------------------------------------
@@ -3529,7 +3579,7 @@ contains
         end if
 
         do i = 1, self % number_of_constituents
-            if (trim(adjustl(constituent_name)) == trim(adjustl(self % constituent_name(i)))) then
+            if (trim(my_adjustl(constituent_name)) == trim(my_adjustl(self % constituent_name(i)))) then
                 constituent_index = i
 
                 return
@@ -3806,7 +3856,7 @@ contains
 
         nullify(pool_pointer)
 
-        select case (trim(adjustl(pool_name)))
+        select case (trim(my_adjustl(pool_name)))
             case ('all')
                 pool_pointer => self % domain_ptr % blocklist % allfields
             case ('cfg')
@@ -3814,13 +3864,13 @@ contains
             case ('dim')
                 pool_pointer => self % domain_ptr % blocklist % dimensions
             case ('diag', 'mesh', 'state', 'tend', 'tend_physics')
-                call mpas_pool_get_subpool(self % domain_ptr % blocklist % allstructs, trim(adjustl(pool_name)), pool_pointer)
+                call mpas_pool_get_subpool(self % domain_ptr % blocklist % allstructs, trim(my_adjustl(pool_name)), pool_pointer)
             case default
-                call self % model_error('Unsupported pool name "' // trim(adjustl(pool_name)) // '"', subname, __LINE__)
+                call self % model_error('Unsupported pool name "' // trim(my_adjustl(pool_name)) // '"', subname, __LINE__)
         end select
 
         if (.not. associated(pool_pointer)) then
-            call self % model_error('Failed to find pool "' // trim(adjustl(pool_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find pool "' // trim(my_adjustl(pool_name)) // '"', subname, __LINE__)
         end if
     end subroutine dyn_mpas_get_pool_pointer
 
@@ -3860,15 +3910,15 @@ contains
         call self % get_pool_pointer(mpas_pool, pool_name)
         nullify(variable_pointer)
 
-        if (trim(adjustl(pool_name)) == 'cfg') then
+        if (trim(my_adjustl(pool_name)) == 'cfg') then
             ! Special case for config-related variables. They must be retrieved by calling `mpas_pool_get_config`.
-            call mpas_pool_get_config(mpas_pool, trim(adjustl(variable_name)), variable_pointer)
+            call mpas_pool_get_config(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer)
         else
-            call mpas_pool_get_array(mpas_pool, trim(adjustl(variable_name)), variable_pointer, timelevel=time_level)
+            call mpas_pool_get_array(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer, timelevel=time_level)
         end if
 
         if (.not. associated(variable_pointer)) then
-            call self % model_error('Failed to find variable "' // trim(adjustl(variable_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find variable "' // trim(my_adjustl(variable_name)) // '"', subname, __LINE__)
         end if
 
         nullify(mpas_pool)
@@ -3891,10 +3941,10 @@ contains
         nullify(mpas_pool)
         call self % get_pool_pointer(mpas_pool, pool_name)
         nullify(variable_pointer)
-        call mpas_pool_get_array(mpas_pool, trim(adjustl(variable_name)), variable_pointer, timelevel=time_level)
+        call mpas_pool_get_array(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer, timelevel=time_level)
 
         if (.not. associated(variable_pointer)) then
-            call self % model_error('Failed to find variable "' // trim(adjustl(variable_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find variable "' // trim(my_adjustl(variable_name)) // '"', subname, __LINE__)
         end if
 
         nullify(mpas_pool)
@@ -3918,18 +3968,18 @@ contains
         call self % get_pool_pointer(mpas_pool, pool_name)
         nullify(variable_pointer)
 
-        if (trim(adjustl(pool_name)) == 'cfg') then
+        if (trim(my_adjustl(pool_name)) == 'cfg') then
             ! Special case for config-related variables. They must be retrieved by calling `mpas_pool_get_config`.
-            call mpas_pool_get_config(mpas_pool, trim(adjustl(variable_name)), variable_pointer)
-        else if (trim(adjustl(pool_name)) == 'dim') then
+            call mpas_pool_get_config(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer)
+        else if (trim(my_adjustl(pool_name)) == 'dim') then
             ! Special case for dimension-related variables. They must be retrieved by calling `mpas_pool_get_dimension`.
-            call mpas_pool_get_dimension(mpas_pool, trim(adjustl(variable_name)), variable_pointer)
+            call mpas_pool_get_dimension(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer)
         else
-            call mpas_pool_get_array(mpas_pool, trim(adjustl(variable_name)), variable_pointer, timelevel=time_level)
+            call mpas_pool_get_array(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer, timelevel=time_level)
         end if
 
         if (.not. associated(variable_pointer)) then
-            call self % model_error('Failed to find variable "' // trim(adjustl(variable_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find variable "' // trim(my_adjustl(variable_name)) // '"', subname, __LINE__)
         end if
 
         nullify(mpas_pool)
@@ -3953,15 +4003,15 @@ contains
         call self % get_pool_pointer(mpas_pool, pool_name)
         nullify(variable_pointer)
 
-        if (trim(adjustl(pool_name)) == 'dim') then
+        if (trim(my_adjustl(pool_name)) == 'dim') then
             ! Special case for dimension-related variables. They must be retrieved by calling `mpas_pool_get_dimension`.
-            call mpas_pool_get_dimension(mpas_pool, trim(adjustl(variable_name)), variable_pointer)
+            call mpas_pool_get_dimension(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer)
         else
-            call mpas_pool_get_array(mpas_pool, trim(adjustl(variable_name)), variable_pointer, timelevel=time_level)
+            call mpas_pool_get_array(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer, timelevel=time_level)
         end if
 
         if (.not. associated(variable_pointer)) then
-            call self % model_error('Failed to find variable "' // trim(adjustl(variable_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find variable "' // trim(my_adjustl(variable_name)) // '"', subname, __LINE__)
         end if
 
         nullify(mpas_pool)
@@ -3984,10 +4034,10 @@ contains
         nullify(mpas_pool)
         call self % get_pool_pointer(mpas_pool, pool_name)
         nullify(variable_pointer)
-        call mpas_pool_get_array(mpas_pool, trim(adjustl(variable_name)), variable_pointer, timelevel=time_level)
+        call mpas_pool_get_array(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer, timelevel=time_level)
 
         if (.not. associated(variable_pointer)) then
-            call self % model_error('Failed to find variable "' // trim(adjustl(variable_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find variable "' // trim(my_adjustl(variable_name)) // '"', subname, __LINE__)
         end if
 
         nullify(mpas_pool)
@@ -4010,10 +4060,10 @@ contains
         nullify(mpas_pool)
         call self % get_pool_pointer(mpas_pool, pool_name)
         nullify(variable_pointer)
-        call mpas_pool_get_array(mpas_pool, trim(adjustl(variable_name)), variable_pointer, timelevel=time_level)
+        call mpas_pool_get_array(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer, timelevel=time_level)
 
         if (.not. associated(variable_pointer)) then
-            call self % model_error('Failed to find variable "' // trim(adjustl(variable_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find variable "' // trim(my_adjustl(variable_name)) // '"', subname, __LINE__)
         end if
 
         nullify(mpas_pool)
@@ -4037,13 +4087,13 @@ contains
         call self % get_pool_pointer(mpas_pool, pool_name)
         nullify(variable_pointer)
 
-        if (trim(adjustl(pool_name)) == 'cfg') then
+        if (trim(my_adjustl(pool_name)) == 'cfg') then
             ! Special case for config-related variables. They must be retrieved by calling `mpas_pool_get_config`.
-            call mpas_pool_get_config(mpas_pool, trim(adjustl(variable_name)), variable_pointer)
+            call mpas_pool_get_config(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer)
         end if
 
         if (.not. associated(variable_pointer)) then
-            call self % model_error('Failed to find variable "' // trim(adjustl(variable_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find variable "' // trim(my_adjustl(variable_name)) // '"', subname, __LINE__)
         end if
 
         nullify(mpas_pool)
@@ -4067,15 +4117,15 @@ contains
         call self % get_pool_pointer(mpas_pool, pool_name)
         nullify(variable_pointer)
 
-        if (trim(adjustl(pool_name)) == 'cfg') then
+        if (trim(my_adjustl(pool_name)) == 'cfg') then
             ! Special case for config-related variables. They must be retrieved by calling `mpas_pool_get_config`.
-            call mpas_pool_get_config(mpas_pool, trim(adjustl(variable_name)), variable_pointer)
+            call mpas_pool_get_config(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer)
         else
-            call mpas_pool_get_array(mpas_pool, trim(adjustl(variable_name)), variable_pointer, timelevel=time_level)
+            call mpas_pool_get_array(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer, timelevel=time_level)
         end if
 
         if (.not. associated(variable_pointer)) then
-            call self % model_error('Failed to find variable "' // trim(adjustl(variable_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find variable "' // trim(my_adjustl(variable_name)) // '"', subname, __LINE__)
         end if
 
         nullify(mpas_pool)
@@ -4098,10 +4148,10 @@ contains
         nullify(mpas_pool)
         call self % get_pool_pointer(mpas_pool, pool_name)
         nullify(variable_pointer)
-        call mpas_pool_get_array(mpas_pool, trim(adjustl(variable_name)), variable_pointer, timelevel=time_level)
+        call mpas_pool_get_array(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer, timelevel=time_level)
 
         if (.not. associated(variable_pointer)) then
-            call self % model_error('Failed to find variable "' // trim(adjustl(variable_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find variable "' // trim(my_adjustl(variable_name)) // '"', subname, __LINE__)
         end if
 
         nullify(mpas_pool)
@@ -4124,10 +4174,10 @@ contains
         nullify(mpas_pool)
         call self % get_pool_pointer(mpas_pool, pool_name)
         nullify(variable_pointer)
-        call mpas_pool_get_array(mpas_pool, trim(adjustl(variable_name)), variable_pointer, timelevel=time_level)
+        call mpas_pool_get_array(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer, timelevel=time_level)
 
         if (.not. associated(variable_pointer)) then
-            call self % model_error('Failed to find variable "' // trim(adjustl(variable_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find variable "' // trim(my_adjustl(variable_name)) // '"', subname, __LINE__)
         end if
 
         nullify(mpas_pool)
@@ -4150,10 +4200,10 @@ contains
         nullify(mpas_pool)
         call self % get_pool_pointer(mpas_pool, pool_name)
         nullify(variable_pointer)
-        call mpas_pool_get_array(mpas_pool, trim(adjustl(variable_name)), variable_pointer, timelevel=time_level)
+        call mpas_pool_get_array(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer, timelevel=time_level)
 
         if (.not. associated(variable_pointer)) then
-            call self % model_error('Failed to find variable "' // trim(adjustl(variable_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find variable "' // trim(my_adjustl(variable_name)) // '"', subname, __LINE__)
         end if
 
         nullify(mpas_pool)
@@ -4176,10 +4226,10 @@ contains
         nullify(mpas_pool)
         call self % get_pool_pointer(mpas_pool, pool_name)
         nullify(variable_pointer)
-        call mpas_pool_get_array(mpas_pool, trim(adjustl(variable_name)), variable_pointer, timelevel=time_level)
+        call mpas_pool_get_array(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer, timelevel=time_level)
 
         if (.not. associated(variable_pointer)) then
-            call self % model_error('Failed to find variable "' // trim(adjustl(variable_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find variable "' // trim(my_adjustl(variable_name)) // '"', subname, __LINE__)
         end if
 
         nullify(mpas_pool)
@@ -4202,10 +4252,10 @@ contains
         nullify(mpas_pool)
         call self % get_pool_pointer(mpas_pool, pool_name)
         nullify(variable_pointer)
-        call mpas_pool_get_array(mpas_pool, trim(adjustl(variable_name)), variable_pointer, timelevel=time_level)
+        call mpas_pool_get_array(mpas_pool, trim(my_adjustl(variable_name)), variable_pointer, timelevel=time_level)
 
         if (.not. associated(variable_pointer)) then
-            call self % model_error('Failed to find variable "' // trim(adjustl(variable_name)) // '"', subname, __LINE__)
+            call self % model_error('Failed to find variable "' // trim(my_adjustl(variable_name)) // '"', subname, __LINE__)
         end if
 
         nullify(mpas_pool)
@@ -4244,8 +4294,8 @@ contains
         allocate(variable_value, source=variable_pointer, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate variable "' // trim(adjustl(variable_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate variable "' // trim(my_adjustl(variable_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -4272,8 +4322,8 @@ contains
         allocate(variable_value, source=variable_pointer, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate variable "' // trim(adjustl(variable_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate variable "' // trim(my_adjustl(variable_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -4300,8 +4350,8 @@ contains
         allocate(variable_value, source=variable_pointer, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate variable "' // trim(adjustl(variable_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate variable "' // trim(my_adjustl(variable_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -4328,8 +4378,8 @@ contains
         allocate(variable_value, source=variable_pointer, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate variable "' // trim(adjustl(variable_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate variable "' // trim(my_adjustl(variable_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -4356,8 +4406,8 @@ contains
         allocate(variable_value, source=variable_pointer, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate variable "' // trim(adjustl(variable_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate variable "' // trim(my_adjustl(variable_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -4384,8 +4434,8 @@ contains
         allocate(variable_value, source=variable_pointer, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate variable "' // trim(adjustl(variable_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate variable "' // trim(my_adjustl(variable_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -4412,8 +4462,8 @@ contains
         allocate(variable_value, source=variable_pointer, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate variable "' // trim(adjustl(variable_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate variable "' // trim(my_adjustl(variable_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -4440,8 +4490,8 @@ contains
         allocate(variable_value, source=variable_pointer, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate variable "' // trim(adjustl(variable_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate variable "' // trim(my_adjustl(variable_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -4468,8 +4518,8 @@ contains
         allocate(variable_value, source=variable_pointer, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate variable "' // trim(adjustl(variable_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate variable "' // trim(my_adjustl(variable_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -4496,8 +4546,8 @@ contains
         allocate(variable_value, source=variable_pointer, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate variable "' // trim(adjustl(variable_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate variable "' // trim(my_adjustl(variable_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -4524,8 +4574,8 @@ contains
         allocate(variable_value, source=variable_pointer, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate variable "' // trim(adjustl(variable_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate variable "' // trim(my_adjustl(variable_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -4552,8 +4602,8 @@ contains
         allocate(variable_value, source=variable_pointer, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate variable "' // trim(adjustl(variable_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate variable "' // trim(my_adjustl(variable_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 
@@ -4580,8 +4630,8 @@ contains
         allocate(variable_value, source=variable_pointer, errmsg=cerr, stat=ierr)
 
         if (ierr /= 0) then
-            call self % model_error('Failed to allocate variable "' // trim(adjustl(variable_name)) // '"' // new_line('') // &
-                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(adjustl(cerr)), &
+            call self % model_error('Failed to allocate variable "' // trim(my_adjustl(variable_name)) // '"' // new_line('') // &
+                'Allocation returned with ' // stringify([ierr]) // ': ' // trim(my_adjustl(cerr)), &
                 subname, __LINE__)
         end if
 

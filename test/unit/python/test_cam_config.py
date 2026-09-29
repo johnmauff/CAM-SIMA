@@ -74,7 +74,8 @@ class FakeCase:
             "RUN_STARTDATE" : "101",
             "CAM_SIM_YEAR" : "2000",
             "DEBUG" : False,
-            "OPENACC_GPU_OFFLOAD": False
+            "OPENACC_GPU_OFFLOAD": False,
+            "CCPP_GENERATOR": "capgen"
             }
 
     def get_value(self, key):
