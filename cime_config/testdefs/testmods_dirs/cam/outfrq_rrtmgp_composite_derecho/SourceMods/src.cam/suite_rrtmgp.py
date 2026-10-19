@@ -34,12 +34,18 @@ from cam_rrtmgp_adapter import cam_rrtmgp
 initialize_constituents = ccpp_scheme_ref("initialize_constituents")
 
 
+# In a CCPP suite class, each method is a group recorded by @ccpp_suite,
+# not a real method: it takes no 'self', and the class holds only groups.
+# pylint: disable=no-method-argument,too-few-public-methods
 @ccpp_suite("rrtmgp", version="1.0")
-class rrtmgp:
+class RrtmgpSuite:
+    """The 'rrtmgp' suite (its name comes from @ccpp_suite, not the class)."""
+
     def physics_after_coupler():
+        """Group run after the coupler: CAM-SIMA's RRTMGP radiation."""
         initialize_constituents()
         cam_rrtmgp()
 
 
 if __name__ == "__main__":
-    export_suite(rrtmgp)
+    export_suite(RrtmgpSuite)
