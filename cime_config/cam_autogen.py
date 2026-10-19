@@ -703,6 +703,45 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                 # otherwise mistake for a new flag if passed as two args.
                 cmd += ["--preproc-defs=" + ",".join(preproc_defs)]
             # end if
+            # Opt-in scheme I/O capture (xdsl-ccpp backlog item
+            # scheme-io-capture): never on by default, no effect on a
+            # normal build. Same env-var-with-cache-file-fallback pattern
+            # as XDSL_CCPP_PYTHON above, for the same reason -- a value
+            # exported in an interactive shell before case.submit does not
+            # reliably propagate into the PBS batch job's own environment,
+            # so the value actually used is always persisted to a cache
+            # file in genccpp_dir and re-read from there on any
+            # invocation that doesn't have the env var set (e.g. a
+            # run-phase-only invocation, or a build phase whose PBS job
+            # environment didn't inherit it).
+            _xdsl_capture_scheme_cache = os.path.join(
+                genccpp_dir, ".xdsl_ccpp_capture_scheme")
+            _xdsl_capture_scheme = os.environ.get("XDSL_CCPP_CAPTURE_SCHEME", "")
+            if not _xdsl_capture_scheme and os.path.isfile(_xdsl_capture_scheme_cache):
+                with open(_xdsl_capture_scheme_cache) as _f:
+                    _xdsl_capture_scheme = _f.read().strip()
+            # end if
+            _xdsl_capture_driver_dir_cache = os.path.join(
+                genccpp_dir, ".xdsl_ccpp_capture_test_driver_dir")
+            _xdsl_capture_driver_dir = os.environ.get(
+                "XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR", "")
+            if not _xdsl_capture_driver_dir and os.path.isfile(_xdsl_capture_driver_dir_cache):
+                with open(_xdsl_capture_driver_dir_cache) as _f:
+                    _xdsl_capture_driver_dir = _f.read().strip()
+            # end if
+            if _xdsl_capture_scheme:
+                with open(_xdsl_capture_scheme_cache, "w") as _f:
+                    _f.write(_xdsl_capture_scheme)
+                cmd += ["--capture-scheme", _xdsl_capture_scheme]
+                if _xdsl_capture_driver_dir:
+                    with open(_xdsl_capture_driver_dir_cache, "w") as _f:
+                        _f.write(_xdsl_capture_driver_dir)
+                    if not os.path.isdir(_xdsl_capture_driver_dir):
+                        os.makedirs(_xdsl_capture_driver_dir)
+                    # end if
+                    cmd += ["--capture-test-driver-dir", _xdsl_capture_driver_dir]
+                # end if
+            # end if
             if gpu_flag:
                 # OpenACC directives for memory_space=device scheme args.
                 cmd += ["--directive", "acc"]
