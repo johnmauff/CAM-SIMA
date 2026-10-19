@@ -58,6 +58,7 @@ from cam_autogen import CamAutoGenError
 from cam_autogen import _update_file, _find_schemes_in_sdf
 from cam_autogen import _find_metadata_files, generate_registry
 from cam_autogen import generate_physics_suites, generate_init_routines
+from cam_autogen import _find_suite_file, _find_schemes_in_py_suite
 
 #Import necessary CCPP framework functions:
 from parse_tools import read_xml_file
@@ -169,6 +170,32 @@ class FakeBuildCache:
 
     # pylint: enable=no-self-use
     # pylint: enable=unused-argument
+
+class RecordingBuildCache(FakeBuildCache):
+
+    """FakeBuildCache that records the suite inputs passed to 'ccpp_mismatch'."""
+
+    def __init__(self):
+        super().__init__()
+        self.suite_inputs = None
+
+    def ccpp_mismatch(self, sdfs, scheme_files, host_files,
+                      preproc_defs, kind_phys, ccpp_generator="capgen"):
+
+        """Record <sdfs>, then behave like FakeBuildCache.ccpp_mismatch."""
+        self.suite_inputs = list(sdfs)
+        return False
+
+# Stand-in for a Python suite script: prints suite IR the way
+# xdsl_ccpp's export_suite does, without needing xdsl_ccpp installed.
+_FAKE_PY_SUITE = """import sys
+assert "--legacy-mode" in sys.argv
+print('"ccpp.suite"() <{suite_name = "simple", version = "1.0"}> ({')
+print('  "ccpp.scheme"() <{scheme_name = "temp_adjust"}> : () -> ()')
+print('  "ccpp.scheme"() <{scheme_name = "other_scheme", arg_overrides = {x = "1"}}> : () -> ()')
+print('  "ccpp.scheme"() <{scheme_name = "temp_adjust"}> : () -> ()')
+print('}) : () -> ()')
+"""
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #Main cam_autogen testing routine, used when script is run directly
@@ -707,6 +734,168 @@ class CamAutoGenTestRoutine(unittest.TestCase):
             os.remove(test_file)
         #End for
         os.remove(os.path.join(self.test_src_mods_dir, "suite_simple.xml"))
+
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    #Tests for Python suites (xdsl_ccpp's Python frontend)
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    def _write_py_suite(self, directory, name="simple", content=_FAKE_PY_SUITE):
+
+        """Write a stand-in Python suite 'suite_<name>.py' into <directory>."""
+
+        path = os.path.join(directory, f"suite_{name}.py")
+        with open(path, "w", encoding="utf-8") as suite_file:
+            suite_file.write(content)
+        #End with
+        return path
+
+    def _copy_temp_adjust_scheme(self):
+
+        """Copy the temp_adjust test scheme into the test SourceMods directory."""
+
+        for suffix in ("meta", "F90"):
+            shutil.copy2(os.path.join(self.test_suite_path, "write_init_files",
+                                      f"temp_adjust.{suffix}"), self.test_src_mods_dir)
+        #End for
+
+    def test_find_suite_file(self):
+
+        """
+        Check that "_find_suite_file" searches directories in order and,
+        within one directory, prefers a Python suite over an SDF.
+        """
+
+        other_dir = os.path.join(self.test_bldroot, "other_suites")
+        os.mkdir(other_dir)
+        xml_path = os.path.join(self.test_src_mods_dir, "suite_simple.xml")
+        shutil.copy2(os.path.join(self.test_suite_path, "write_init_files",
+                                  "suite_simple.xml"), xml_path)
+        later_py = self._write_py_suite(other_dir)
+
+        #An SDF in an earlier directory wins over a Python suite in a later one:
+        self.assertEqual(_find_suite_file("simple", [self.test_src_mods_dir, other_dir]),
+                         xml_path)
+        self.assertEqual(_find_suite_file("simple", [other_dir, self.test_src_mods_dir]),
+                         later_py)
+
+        #Within one directory, the Python suite wins:
+        same_dir_py = self._write_py_suite(self.test_src_mods_dir)
+        self.assertEqual(_find_suite_file("simple", [self.test_src_mods_dir]), same_dir_py)
+        self.assertIsNone(_find_suite_file("missing", [self.test_src_mods_dir]))
+
+        os.remove(xml_path)
+        os.remove(same_dir_py)
+
+    def test_find_schemes_in_py_suite(self):
+
+        """
+        Check that "_find_schemes_in_py_suite" returns the schemes a Python
+        suite calls, in call order without duplicates.
+        """
+
+        suite_path = self._write_py_suite(self.test_src_mods_dir)
+        self.assertEqual(_find_schemes_in_py_suite(suite_path, sys.executable),
+                         ["temp_adjust", "other_scheme"])
+        os.remove(suite_path)
+
+    def test_failing_py_suite(self):
+
+        """Check that a Python suite that fails to run raises CamAutoGenError."""
+
+        suite_path = self._write_py_suite(self.test_src_mods_dir,
+                                          content="raise SystemExit('broken suite')\n")
+        with self.assertRaises(CamAutoGenError) as autoerr:
+            _find_schemes_in_py_suite(suite_path, sys.executable)
+        #End with
+        self.assertIn("Unable to run Python suite", str(autoerr.exception))
+        self.assertIn("broken suite", str(autoerr.exception))
+        os.remove(suite_path)
+
+    def test_generate_physics_suites_python_suite(self):
+
+        """
+        Check that "generate_physics_suites" accepts a Python suite under
+        xdsl_ccpp: its schemes are found by running it, and the suite plus
+        the Python modules beside it are the suite inputs given to the
+        build cache.
+        """
+
+        self._copy_temp_adjust_scheme()
+        other_scheme = os.path.join(self.test_src_mods_dir, "other_scheme")
+        shutil.copy2(os.path.join(self.test_src_mods_dir, "temp_adjust.meta"),
+                     other_scheme + ".meta")
+        shutil.copy2(os.path.join(self.test_src_mods_dir, "temp_adjust.F90"),
+                     other_scheme + ".F90")
+        with open(other_scheme + ".meta", encoding="utf-8") as meta_file:
+            meta_text = meta_file.read().replace("temp_adjust", "other_scheme")
+        #End with
+        with open(other_scheme + ".meta", "w", encoding="utf-8") as meta_file:
+            meta_file.write(meta_text)
+        #End with
+        suite_path = self._write_py_suite(self.test_src_mods_dir)
+        helper_path = os.path.join(self.test_src_mods_dir, "my_package.py")
+        with open(helper_path, "w", encoding="utf-8") as helper_file:
+            helper_file.write("# helper module imported by the suite\n")
+        #End with
+
+        cache = RecordingBuildCache()
+        gen_results = generate_physics_suites(cache, "UNSET", "cam", "simple",
+                                              _CAM_ROOT_DIR, self.test_bldroot,
+                                              self.test_reg_dir, [],
+                                              self.test_src_mods_dir, False, False,
+                                              ccpp_generator="xdsl_ccpp")
+
+        self.assertEqual(gen_results[5], {"temp_adjust", "other_scheme"})
+        self.assertEqual(cache.suite_inputs, [suite_path, helper_path])
+
+        for test_file in glob.glob(os.path.join(self.test_src_mods_dir, "*")):
+            os.remove(test_file)
+        #End for
+
+    def test_python_suite_requires_xdsl_ccpp(self):
+
+        """Check that a Python suite is rejected unless CCPP_GENERATOR=xdsl_ccpp."""
+
+        suite_path = self._write_py_suite(self.test_src_mods_dir)
+        with self.assertRaises(CamAutoGenError) as autoerr:
+            _ = generate_physics_suites(self.test_cache, "UNSET", "cam", "simple",
+                                        _CAM_ROOT_DIR, self.test_bldroot,
+                                        self.test_reg_dir, [],
+                                        self.test_src_mods_dir, False, False)
+        #End with
+        self.assertIn("requires CCPP_GENERATOR=xdsl_ccpp", str(autoerr.exception))
+        os.remove(suite_path)
+
+    def test_python_suite_must_be_only_suite(self):
+
+        """Check that a Python suite cannot be combined with other suites."""
+
+        self._copy_temp_adjust_scheme()
+        suite_path = self._write_py_suite(self.test_src_mods_dir)
+        shutil.copy2(os.path.join(self.test_suite_path, "write_init_files",
+                                  "suite_simple.xml"),
+                     os.path.join(self.test_src_mods_dir, "suite_other.xml"))
+        with open(os.path.join(self.test_src_mods_dir, "temp_adjust.meta"),
+                  encoding="utf-8") as meta_file:
+            meta_text = meta_file.read().replace("temp_adjust", "other_scheme")
+        #End with
+        with open(os.path.join(self.test_src_mods_dir, "other_scheme.meta"), "w",
+                  encoding="utf-8") as meta_file:
+            meta_file.write(meta_text)
+        #End with
+        shutil.copy2(os.path.join(self.test_src_mods_dir, "temp_adjust.F90"),
+                     os.path.join(self.test_src_mods_dir, "other_scheme.F90"))
+        with self.assertRaises(CamAutoGenError) as autoerr:
+            _ = generate_physics_suites(self.test_cache, "UNSET", "cam", "simple;other",
+                                        _CAM_ROOT_DIR, self.test_bldroot,
+                                        self.test_reg_dir, [],
+                                        self.test_src_mods_dir, False, False,
+                                        ccpp_generator="xdsl_ccpp")
+        #End with
+        self.assertIn("must be the only physics suite", str(autoerr.exception))
+        for test_file in glob.glob(os.path.join(self.test_src_mods_dir, "*")):
+            os.remove(test_file)
+        #End for
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++
     #Tests for "generate_init_routines" autogen function

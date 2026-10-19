@@ -18,6 +18,7 @@ import logging
 import shutil
 import filecmp
 import glob
+import re
 import subprocess
 import xml.etree.ElementTree as _ET
 
@@ -260,6 +261,93 @@ def _find_schemes_in_sdf(suite_part):
                     # End for
                 # End if
             # End for
+        # End if
+    # End for
+    return scheme_list
+
+###############################################################################
+def _find_suite_file(suite_name, search_dirs):
+###############################################################################
+    """
+    Find the definition file for physics suite <suite_name>, searching
+    <search_dirs> in order: a Python suite (suite_<suite_name>.py, which
+    requires CCPP_GENERATOR=xdsl_ccpp) or an SDF (suite_<suite_name>.xml).
+    Within one directory a Python suite takes precedence.
+    Return the full path of the first match, or None.
+
+    doctests:
+
+    1.  Check that the function returns None if it can't find a suite:
+    >>> _find_suite_file("banana", [_CAM_ROOT_DIR]) is None
+    True
+
+    """
+    for sdir in search_dirs:
+        for suffix in (".py", ".xml"):
+            test_path = os.path.join(sdir, f"suite_{suite_name}{suffix}")
+            if os.path.exists(test_path):
+                return test_path
+            # End if
+        # End for
+    # End for
+    return None
+
+###############################################################################
+def _python_suite_inputs(suite_path):
+###############################################################################
+    """
+    Return the Python suite <suite_path> followed by the other Python modules
+    beside it (e.g. the physics packages and host adapters it imports), all
+    of which are inputs whose changes require regenerating the CCPP caps.
+    """
+    suite_dir = os.path.dirname(os.path.abspath(suite_path))
+    helpers = sorted(path for path in glob.glob(os.path.join(suite_dir, "*.py"))
+                     if os.path.abspath(path) != os.path.abspath(suite_path))
+    return [suite_path] + helpers
+
+###############################################################################
+def _resolve_xdsl_python(genccpp_dir):
+###############################################################################
+    """
+    Return the Python interpreter used to run xdsl_ccpp: $XDSL_CCPP_PYTHON,
+    else the value cached in <genccpp_dir> by the last cap generation, else
+    the interpreter running this script.
+    """
+    xdsl_python = os.environ.get("XDSL_CCPP_PYTHON", "")
+    xdsl_python_cache = os.path.join(genccpp_dir, ".xdsl_ccpp_python")
+    if not xdsl_python and os.path.isfile(xdsl_python_cache):
+        with open(xdsl_python_cache) as cache_file:
+            xdsl_python = cache_file.read().strip()
+        # End with
+    # End if
+    return xdsl_python or sys.executable
+
+# One scheme call in a Python suite's IR, e.g.
+#   "ccpp.scheme"() <{scheme_name = "rrtmgp_pre"}> : () -> ()
+_PY_SUITE_SCHEME_RE = re.compile(r'"ccpp\.scheme"\(\)\s*<\{scheme_name = "(\w+)"')
+
+###############################################################################
+def _find_schemes_in_py_suite(suite_path, python_exe):
+###############################################################################
+    """
+    Run the Python suite <suite_path> with <python_exe> (an interpreter that
+    can import xdsl_ccpp) and return the names of the schemes it calls, in
+    call order without duplicates: the Python-suite counterpart of
+    _find_schemes_in_sdf. The suite names its schemes without their
+    metadata, so this needs no scheme files; the names are read from the
+    suite IR it prints.
+    """
+    result = subprocess.run([python_exe, suite_path, "--legacy-mode"],
+                            capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        emsg = "ERROR: Unable to run Python suite '{}':\n{}"
+        raise CamAutoGenError(emsg.format(suite_path, result.stderr))
+    # End if
+    scheme_list = []
+    for line in result.stdout.splitlines():
+        match = _PY_SUITE_SCHEME_RE.search(line)
+        if match and (match.group(1) not in scheme_list):
+            scheme_list.append(match.group(1))
         # End if
     # End for
     return scheme_list
@@ -526,13 +614,17 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     source_search    = [source_mods_dir, atm_schemes_path, atm_test_schemes_path]
     all_scheme_files = _find_metadata_files(source_search, find_scheme_names)
 
-    # Find the SDFs specified for this model build
+    genccpp_dir = os.path.join(bldroot, "ccpp")
+
+    # Find the suite files (SDFs, or a Python suite) specified for this build
     sdfs = []
+    py_suite = None    # A Python suite script, if this build uses one
+    suite_inputs = []  # Suite files plus Python suite helper modules
     scheme_files = []
     scheme_names = set()
     xml_files = {} # key is scheme, value is xml file path
     for sdf in phys_suites_str.split(';'):
-        sdf_path = _find_file(f"suite_{sdf}.xml", suite_search)
+        sdf_path = _find_suite_file(sdf, suite_search)
         if not sdf_path:
             emsg = f"ERROR: Unable to find SDF for suite '{sdf}'"
             raise CamAutoGenError(emsg)
@@ -542,9 +634,24 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
           _LOGGER.info("Using non-standard test suite: %s", sdf)
         # End if
         sdfs.append(sdf_path)
-        # Given an SDF, find all the schemes it calls
-        _, suite = read_xml_file(sdf_path)
-        sdf_schemes = _find_schemes_in_sdf(suite)
+        if sdf_path.endswith(".py"):
+            # A Python suite (xdsl_ccpp's Python frontend); its schemes are
+            # found by running it.
+            if ccpp_generator != "xdsl_ccpp":
+                emsg = ("ERROR: Python suite '{}' requires "
+                        "CCPP_GENERATOR=xdsl_ccpp (got '{}')")
+                raise CamAutoGenError(emsg.format(sdf_path, ccpp_generator))
+            # End if
+            py_suite = sdf_path
+            suite_inputs.extend(_python_suite_inputs(sdf_path))
+            sdf_schemes = _find_schemes_in_py_suite(
+                sdf_path, _resolve_xdsl_python(genccpp_dir))
+        else:
+            suite_inputs.append(sdf_path)
+            # Given an SDF, find all the schemes it calls
+            _, suite = read_xml_file(sdf_path)
+            sdf_schemes = _find_schemes_in_sdf(suite)
+        # End if
         #Add schemes to set of all scheme names:
         scheme_names.update(sdf_schemes)
         # For each scheme, find its metadata file
@@ -566,8 +673,13 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             # End if
         # End for
     # End for
+    if py_suite and (len(sdfs) > 1):
+        # xdsl_ccpp's --py takes a single suite script
+        emsg = ("ERROR: A Python suite ('{}') must be the only physics "
+                "suite in the build; got {}")
+        raise CamAutoGenError(emsg.format(py_suite, ', '.join(sdfs)))
+    # End if
     # Figure out if we need to generate new physics code
-    genccpp_dir = os.path.join(bldroot, "ccpp")
     kind_phys = ['kind_phys = REAL64']
     kind_types = kind_phys
 
@@ -591,7 +703,7 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     do_gen_nl = False
 
     if os.path.exists(genccpp_dir):
-        do_gen_ccpp = force or build_cache.ccpp_mismatch(sdfs, scheme_files,
+        do_gen_ccpp = force or build_cache.ccpp_mismatch(suite_inputs, scheme_files,
                                                          host_files,
                                                          preproc_cache_str,
                                                          kind_phys,
@@ -669,20 +781,20 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             # (see _xdsl_python_cache below) so the run phase works without
             # any env-var setup in the job script.
             _xdsl_python_cache = os.path.join(genccpp_dir, ".xdsl_ccpp_python")
-            _xdsl_python = os.environ.get("XDSL_CCPP_PYTHON", "")
-            if not _xdsl_python and os.path.isfile(_xdsl_python_cache):
-                with open(_xdsl_python_cache) as _f:
-                    _xdsl_python = _f.read().strip()
-            if not _xdsl_python:
-                _xdsl_python = sys.executable
+            _xdsl_python = _resolve_xdsl_python(genccpp_dir)
             # Persist so run-phase invocations can find it without the env var.
             with open(_xdsl_python_cache, "w") as _f:
                 _f.write(_xdsl_python)
+            if py_suite:
+                suite_args = ["--py", py_suite]
+            else:
+                suite_args = ["--suites", ",".join(sdfs)]
+            # end if
             cmd = [
                 _xdsl_python, "-m", "xdsl_ccpp.tools.ccpp_dsl",
                 "--host-files", ",".join(host_files),
                 "--scheme-files", ",".join(scheme_files),
-                "--suites", ",".join(sdfs),
+                *suite_args,
                 "--host-name", host_name,
                 "-o", genccpp_dir,
                 "--tempdir", os.path.join(genccpp_dir, "tmp"),
@@ -702,6 +814,45 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                 # Single token: values start with '-D', which argparse would
                 # otherwise mistake for a new flag if passed as two args.
                 cmd += ["--preproc-defs=" + ",".join(preproc_defs)]
+            # end if
+            # Opt-in scheme I/O capture (xdsl-ccpp backlog item
+            # scheme-io-capture): never on by default, no effect on a
+            # normal build. Same env-var-with-cache-file-fallback pattern
+            # as XDSL_CCPP_PYTHON above, for the same reason -- a value
+            # exported in an interactive shell before case.submit does not
+            # reliably propagate into the PBS batch job's own environment,
+            # so the value actually used is always persisted to a cache
+            # file in genccpp_dir and re-read from there on any
+            # invocation that doesn't have the env var set (e.g. a
+            # run-phase-only invocation, or a build phase whose PBS job
+            # environment didn't inherit it).
+            _xdsl_capture_scheme_cache = os.path.join(
+                genccpp_dir, ".xdsl_ccpp_capture_scheme")
+            _xdsl_capture_scheme = os.environ.get("XDSL_CCPP_CAPTURE_SCHEME", "")
+            if not _xdsl_capture_scheme and os.path.isfile(_xdsl_capture_scheme_cache):
+                with open(_xdsl_capture_scheme_cache) as _f:
+                    _xdsl_capture_scheme = _f.read().strip()
+            # end if
+            _xdsl_capture_driver_dir_cache = os.path.join(
+                genccpp_dir, ".xdsl_ccpp_capture_test_driver_dir")
+            _xdsl_capture_driver_dir = os.environ.get(
+                "XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR", "")
+            if not _xdsl_capture_driver_dir and os.path.isfile(_xdsl_capture_driver_dir_cache):
+                with open(_xdsl_capture_driver_dir_cache) as _f:
+                    _xdsl_capture_driver_dir = _f.read().strip()
+            # end if
+            if _xdsl_capture_scheme:
+                with open(_xdsl_capture_scheme_cache, "w") as _f:
+                    _f.write(_xdsl_capture_scheme)
+                cmd += ["--capture-scheme", _xdsl_capture_scheme]
+                if _xdsl_capture_driver_dir:
+                    with open(_xdsl_capture_driver_dir_cache, "w") as _f:
+                        _f.write(_xdsl_capture_driver_dir)
+                    if not os.path.isdir(_xdsl_capture_driver_dir):
+                        os.makedirs(_xdsl_capture_driver_dir)
+                    # end if
+                    cmd += ["--capture-test-driver-dir", _xdsl_capture_driver_dir]
+                # end if
             # end if
             if gpu_flag:
                 # OpenACC directives for memory_space=device scheme args.
@@ -803,7 +954,7 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
 
     if do_gen_ccpp or do_gen_nl:
         # save build details in the build cache
-        build_cache.update_ccpp(sdfs, scheme_files, host_files, xml_files,
+        build_cache.update_ccpp(suite_inputs, scheme_files, host_files, xml_files,
                                 scheme_nl_meta_files, nl_groups, create_nl_file,
                                 preproc_cache_str, kind_types, ccpp_generator)
         request = DatatableReport("utility_files")
