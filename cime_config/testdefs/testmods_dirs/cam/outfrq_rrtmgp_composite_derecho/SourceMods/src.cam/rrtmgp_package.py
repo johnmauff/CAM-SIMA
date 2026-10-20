@@ -42,10 +42,12 @@ names their 789 metadata arguments use, sits in one suite-wide namespace.
 
 With this package:
 
-- A host calls 4 entry points (``rrtmgp_prepare``, ``rrtmgp_shortwave``,
-  ``rrtmgp_longwave``, ``rrtmgp_init_only``) instead of listing 40 schemes.
-  The order of RRTMGP's internal steps is written once, here, by the people
-  who own RRTMGP, instead of being re-typed into every host's suite file.
+- A host calls 3 entry points (``rrtmgp_prepare``, ``rrtmgp_shortwave``,
+  ``rrtmgp_longwave``) instead of listing 40 schemes.  The order of RRTMGP's
+  internal steps is written once, here, by the people who own RRTMGP,
+  instead of being re-typed into every host's suite file.  RRTMGP's
+  init-only schemes are the package's own business (``@rrtmgp.init``); the
+  host never sees them.
 - What a host must understand is the package's call interface: 8 hooks to
   fill in and 7 optional slots -- not RRTMGP's internal data flow.
 - Swapping a science component is one keyword argument
@@ -55,22 +57,52 @@ With this package:
   this file is exchangeable; everything CAM-specific is a hook filled in by
   the adapter.
 
-Entry points are composites
----------------------------
-Each entry point is decorated ``@ccpp_composite``, so the generator's IR
-records every call as one named ``ccpp.composite`` block (e.g.
-``rrtmgp_shortwave``) instead of losing the package boundary while the suite
-is recorded.  For now the ``flatten-composites`` pass inlines them again
-before code generation, so the generated Fortran is identical to
-suite_rrtmgp.xml's.
+Entry points belong to one package
+----------------------------------
+``rrtmgp = ccpp_package("rrtmgp")`` declares the package, and each entry
+point is decorated ``@rrtmgp.entry_point``.  The generator's IR records every
+call as one named ``ccpp.composite`` block tagged with the package, so the
+package boundary survives while the suite is recorded.  Inside it, the host
+code run through a hook is recorded as a nested block marked ``hook``: it is
+the host's code, not RRTMGP's.
 
-What this version does NOT yet reduce (composite-scheme Stage 2): RRTMGP's
-internal standard names are still global.  Later Stage 2 steps use the
-recorded package boundaries to make the package's internal names private,
-so only its interface names are visible to the host.
+Private names
+-------------
+The package boundary is shared by all its entry points and its init (e.g. the
+k-distribution objects are made at init and used by both shortwave and
+longwave).  A standard name only RRTMGP's own code touches, and RRTMGP
+writes, is private to the package: the generator renames it
+``rrtmgp__<name>`` and keeps it in the suite cap, out of the host's reach
+(``ccpp_dsl --list-package-scope`` lists them; 51 with CAM-SIMA's host
+metadata).  Names the host's code also touches -- the objects the adapter's
+rrtmgp_pre/rrtmgp_post allocate and free, the fluxes the diagnostics hooks
+read -- stay public.  The ``flatten-composites`` pass then inlines the
+package before the remaining code generation.
 """
 
-from xdsl_ccpp.frontend.py_api import ccpp_composite, ccpp_scheme_ref, forLoop
+from xdsl_ccpp.frontend.py_api import ccpp_package, ccpp_scheme_ref, forLoop
+
+# Shared state: names RRTMGP and CAM's host code both write, i.e. where the
+# package boundary still leaks.  The generator rejects any other such name;
+# the list should shrink as the mixed schemes are split upstream
+# (composite_scheme_plan.md §7).
+rrtmgp = ccpp_package("rrtmgp", shared_state=[
+    # RRTMGP objects CAM's adapter allocates (rrtmgp_pre) and frees (rrtmgp_post)
+    "shortwave_aerosol_optical_properties_object_for_rrtmgp",
+    "shortwave_atmosphere_optical_properties_object_for_rrtmgp",
+    "shortwave_cloud_optical_properties_object_for_rrtmgp",
+    "shortwave_all_sky_flux_object_for_rrtmgp",
+    "shortwave_clear_sky_flux_object_for_rrtmgp",
+    "longwave_aerosol_optical_properties_object_for_rrtmgp",
+    "longwave_atmosphere_optical_properties_object_for_rrtmgp",
+    "longwave_cloud_optical_properties_object_for_rrtmgp",
+    "longwave_planck_sources_object_for_rrtmgp",
+    "longwave_all_sky_flux_object_for_rrtmgp",
+    "longwave_clear_sky_flux_object_for_rrtmgp",
+    # Heating rates CAM's adapter schemes also write
+    "tendency_of_dry_air_enthalpy_at_constant_pressure_due_to_shortwave_radiation",
+    "tendency_of_dry_air_enthalpy_at_constant_pressure_due_to_longwave_radiation",
+])
 
 # ---------------------------------------------------------------------------
 # Core schemes: fixed parts of RRTMGP, always used as-is.
@@ -103,7 +135,7 @@ sw_aerosols        = ccpp_scheme_ref("rrtmgp_sw_aerosols")          # aerosol ->
 lw_aerosols        = ccpp_scheme_ref("rrtmgp_lw_aerosols")          # aerosol -> RRTMGP bands (LW)
 
 
-@ccpp_composite
+@rrtmgp.entry_point
 def rrtmgp_prepare(*,
                    tropopause,                        # HOOK: host's tropopause diagnosis
                    optics_setup=cloud_optics_setup):  # SLOT: cloud-optics lookup tables
@@ -114,7 +146,7 @@ def rrtmgp_prepare(*,
     inputs()
 
 
-@ccpp_composite
+@rrtmgp.entry_point
 def rrtmgp_shortwave(*,
                      n_calls,               # HOOK: how many radiation calls (host policy)
                      next_call,             # HOOK: advance the host's radiation-call counter
@@ -145,7 +177,7 @@ def rrtmgp_shortwave(*,
         next_call()
 
 
-@ccpp_composite
+@rrtmgp.entry_point
 def rrtmgp_longwave(*,
                     n_calls,               # HOOK: how many radiation calls (host policy)
                     next_call,             # HOOK: advance the host's radiation-call counter
@@ -169,8 +201,10 @@ def rrtmgp_longwave(*,
         next_call()
 
 
-@ccpp_composite
-def rrtmgp_init_only():
-    """Schemes with only an init phase; inputs_setup must follow both gas optics."""
+@rrtmgp.init
+def rrtmgp_setup():
+    """Schemes with only an init phase.  The generator places them after the
+    package's last entry-point call, so inputs_setup's init follows both gas
+    optics' (it needs both k-distributions)."""
     inputs_setup()
     sw_solar_var_setup()
