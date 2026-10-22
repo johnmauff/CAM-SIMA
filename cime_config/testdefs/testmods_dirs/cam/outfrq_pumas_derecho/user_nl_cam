@@ -11,6 +11,10 @@ user_defined_rearth     = 6.37100e6
 user_defined_sday       = 86164.10063718943
 
 min_difference          = 2e-15
+! Used instead by cam/cross_compiler_check_tolerance when this case's compiler
+! is not the snapshot's (intel): PUMAS's size distributions differ by up to
+! ~5e-10 between compilers (droplet/rain number concentrations, slopes).
+! cross_compiler_min_difference = 1e-9
 
 hist_output_frequency;h1: 1*nsteps
 hist_max_frames;h1: 2

@@ -75,7 +75,9 @@ class FakeCase:
             "CAM_SIM_YEAR" : "2000",
             "DEBUG" : False,
             "OPENACC_GPU_OFFLOAD": False,
-            "CCPP_GENERATOR": "capgen"
+            "CCPP_GENERATOR": "capgen",
+            "CCPP_PACKAGE_CAPS": False,
+            "CCPP_SUITE_DIR": ""
             }
 
     def get_value(self, key):

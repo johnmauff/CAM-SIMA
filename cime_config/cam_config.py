@@ -192,6 +192,10 @@ class ConfigCAM:
         self.__gpu_flag = case.get_value("OPENACC_GPU_OFFLOAD") #Returns a Boolean
         # CCPP cap-generation backend: 'capgen' (default) or 'xdsl_ccpp'.
         self.__ccpp_generator = case.get_value("CCPP_GENERATOR")
+        # xdsl_ccpp only: one Fortran module per package of a Python suite.
+        self.__package_caps = bool(case.get_value("CCPP_PACKAGE_CAPS"))
+        # Directory to read the suite definition from (empty: the default search).
+        self.__suite_dir = case.get_value("CCPP_SUITE_DIR") or ""
 
         # Save CPP definitions as a list:
         self.__cppdefs = [x for x in case.get_value("CAM_CPPDEFS").split() if x]
@@ -898,7 +902,9 @@ class ConfigCAM:
                                           self.__atm_root, self.__bldroot,
                                           reg_dir, reg_files, source_mods_dir,
                                           self.__gpu_flag, force_ccpp,
-                                          self.__ccpp_generator)
+                                          self.__ccpp_generator,
+                                          package_caps=self.__package_caps,
+                                          suite_dir=self.__suite_dir)
         phys_dirs, force_init, _, nml_fils, resolved_vars_source, scheme_names = retvals
 
         # Add namelist definition files to dictionary:

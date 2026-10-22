@@ -75,6 +75,24 @@
     <desc>CCPP cap-generation backend: capgen (default) or xdsl_ccpp</desc>
   </entry>
 
+  <entry id="CCPP_PACKAGE_CAPS">
+    <type>logical</type>
+    <valid_values>TRUE,FALSE</valid_values>
+    <default_value>FALSE</default_value>
+    <group>build_component_cam</group>
+    <file>env_build.xml</file>
+    <desc>xdsl_ccpp only: generate one Fortran module per package of a Python suite (--package-caps)</desc>
+  </entry>
+
+  <entry id="CCPP_SUITE_DIR">
+    <type>char</type>
+    <valid_values></valid_values>
+    <default_value></default_value>
+    <group>build_component_cam</group>
+    <file>env_build.xml</file>
+    <desc>Directory to read the physics suite definition from, relative to src/physics/ncar_ccpp (or absolute), e.g. suites-py for the Python suites. Empty (default): SourceMods/src.cam, then suites, then test/test_suites.</desc>
+  </entry>
+
   <entry id="CAM_CONFIG_OPTS">
     <type>char</type>
     <valid_values></valid_values>

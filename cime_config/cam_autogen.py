@@ -297,12 +297,15 @@ def _python_suite_inputs(suite_path):
 ###############################################################################
     """
     Return the Python suite <suite_path> followed by the other Python modules
-    beside it (e.g. the physics packages and host adapters it imports), all
-    of which are inputs whose changes require regenerating the CCPP caps.
+    beside it and in subdirectories below it (e.g. the physics packages and
+    host adapters it imports), all of which are inputs whose changes require
+    regenerating the CCPP caps.  Other suites (suite_*.py) beside it are not
+    inputs.
     """
     suite_dir = os.path.dirname(os.path.abspath(suite_path))
-    helpers = sorted(path for path in glob.glob(os.path.join(suite_dir, "*.py"))
-                     if os.path.abspath(path) != os.path.abspath(suite_path))
+    helpers = sorted(path for path in glob.glob(os.path.join(suite_dir, "**", "*.py"),
+                                                recursive=True)
+                     if not os.path.basename(path).startswith("suite_"))
     return [suite_path] + helpers
 
 ###############################################################################
@@ -581,7 +584,8 @@ def generate_registry(data_search, build_cache, atm_root, bldroot,
 def generate_physics_suites(build_cache, preproc_defs, host_name,
                             phys_suites_str, atm_root, bldroot,
                             reg_dir, reg_files, source_mods_dir,
-                            gpu_flag, force, ccpp_generator="capgen"):
+                            gpu_flag, force, ccpp_generator="capgen",
+                            package_caps=False, suite_dir=""):
 ###############################################################################
     """
     Generate the source for the configured physics suites,
@@ -595,7 +599,21 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     <ccpp_generator> is 'capgen' (default) or 'xdsl_ccpp'; the fifth
     return value's type depends on it (CCPPDatabaseObj vs. a JSON path),
     so callers must pass <ccpp_generator> through rather than infer it.
+
+    <package_caps> (xdsl_ccpp only) passes --package-caps: one Fortran
+    module per package of a Python suite. It is recorded with the generator
+    in the build cache, so changing it regenerates the caps.
+
+    <suite_dir> (CCPP_SUITE_DIR), when set, is the only directory searched
+    for the suite definitions -- relative to src/physics/ncar_ccpp, or
+    absolute (e.g. 'suites-py' for the Python suites). Empty: SourceMods,
+    then suites, then test/test_suites.
     """
+    if package_caps and ccpp_generator != "xdsl_ccpp":
+        raise CamAutoGenError("ERROR: CCPP_PACKAGE_CAPS=TRUE requires "
+                              f"CCPP_GENERATOR=xdsl_ccpp (got '{ccpp_generator}')")
+    # end if
+    cache_generator = ccpp_generator + ("+package_caps" if package_caps else "")
 
     # Physics source gets copied into blddir
     physics_blddir = os.path.join(bldroot, "ccpp_physics")
@@ -608,6 +626,13 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     atm_suites_path      = os.path.join(atm_phys_top_dir, "suites")
     atm_test_suites_path = os.path.join(atm_phys_top_dir, "test", "test_suites")
     suite_search         = [source_mods_dir, atm_suites_path, atm_test_suites_path]
+    if suite_dir:
+        suite_search = [os.path.join(atm_phys_top_dir, suite_dir)]
+        if not os.path.isdir(suite_search[0]):
+            raise CamAutoGenError(f"ERROR: CCPP_SUITE_DIR '{suite_dir}' is not a "
+                                  f"directory ({suite_search[0]})")
+        # end if
+    # end if
     # Find all scheme metadata files, organized by scheme name
     atm_schemes_path = os.path.join(atm_phys_top_dir, "schemes")
     atm_test_schemes_path = os.path.join(atm_phys_top_dir, "test", "test_schemes")
@@ -707,7 +732,7 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                                                          host_files,
                                                          preproc_cache_str,
                                                          kind_phys,
-                                                         ccpp_generator)
+                                                         cache_generator)
     else:
         os.makedirs(genccpp_dir)
         do_gen_ccpp = True
@@ -814,6 +839,9 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                 # Single token: values start with '-D', which argparse would
                 # otherwise mistake for a new flag if passed as two args.
                 cmd += ["--preproc-defs=" + ",".join(preproc_defs)]
+            # end if
+            if package_caps:
+                cmd += ["--package-caps"]
             # end if
             # Opt-in scheme I/O capture (xdsl-ccpp backlog item
             # scheme-io-capture): never on by default, no effect on a
@@ -956,7 +984,7 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
         # save build details in the build cache
         build_cache.update_ccpp(suite_inputs, scheme_files, host_files, xml_files,
                                 scheme_nl_meta_files, nl_groups, create_nl_file,
-                                preproc_cache_str, kind_types, ccpp_generator)
+                                preproc_cache_str, kind_types, cache_generator)
         request = DatatableReport("utility_files")
         ufiles_str = datatable_report(cap_output_file, request, ";")
         utility_files = [f for f in ufiles_str.split(';') if f]
