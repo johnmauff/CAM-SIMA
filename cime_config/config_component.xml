@@ -90,7 +90,7 @@
     <default_value></default_value>
     <group>build_component_cam</group>
     <file>env_build.xml</file>
-    <desc>Directory to read the physics suite definition from, relative to src/physics/ncar_ccpp (or absolute), e.g. suites-py for the Python suites. Empty (default): SourceMods/src.cam, then suites, then test/test_suites.</desc>
+    <desc>Directory to read the physics suite definition from, relative to src/physics/ncar_ccpp (or absolute), e.g. suites-py for the Python suites, test/test_suites-py for the Python test suites. Empty (default): SourceMods/src.cam, then suites, then test/test_suites.</desc>
   </entry>
 
   <entry id="CAM_CONFIG_OPTS">

@@ -1,2 +1,2 @@
 ./xmlchange CCPP_GENERATOR=xdsl_ccpp
-./xmlchange CCPP_SUITE_DIR=suites-py
+./xmlchange CCPP_SUITE_DIR=test/test_suites-py

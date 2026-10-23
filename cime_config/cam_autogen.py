@@ -293,20 +293,37 @@ def _find_suite_file(suite_name, search_dirs):
     return None
 
 ###############################################################################
-def _python_suite_inputs(suite_path):
+def _python_suite_inputs(suite_path, library_dir=None):
 ###############################################################################
     """
     Return the Python suite <suite_path> followed by the other Python modules
-    beside it and in subdirectories below it (e.g. the physics packages and
-    host adapters it imports), all of which are inputs whose changes require
-    regenerating the CCPP caps.  Other suites (suite_*.py) beside it are not
-    inputs.
+    beside it and in subdirectories below it, and those under <library_dir>
+    (suites-py: the categories, parameterizations and packages suites
+    import), all of which are inputs whose changes require regenerating the
+    CCPP caps.  Other suites (suite_*.py) are not inputs.
     """
-    suite_dir = os.path.dirname(os.path.abspath(suite_path))
-    helpers = sorted(path for path in glob.glob(os.path.join(suite_dir, "**", "*.py"),
-                                                recursive=True)
-                     if not os.path.basename(path).startswith("suite_"))
+    dirs = [os.path.dirname(os.path.abspath(suite_path))]
+    if library_dir:
+        dirs.append(os.path.abspath(library_dir))
+    # End if
+    helpers = sorted({path for sdir in dirs
+                      for path in glob.glob(os.path.join(sdir, "**", "*.py"),
+                                            recursive=True)
+                      if not os.path.basename(path).startswith("suite_")})
     return [suite_path] + helpers
+
+###############################################################################
+def _python_suite_env(library_dir):
+###############################################################################
+    """
+    Return the environment for running a Python suite: this process's, with
+    <library_dir> (suites-py) first on PYTHONPATH, so that a suite outside
+    it (e.g. in test/test_suites-py) can import its modules.
+    """
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(path for path in
+                                        (library_dir, env.get("PYTHONPATH")) if path)
+    return env
 
 ###############################################################################
 def _resolve_xdsl_python(genccpp_dir):
@@ -330,18 +347,20 @@ def _resolve_xdsl_python(genccpp_dir):
 _PY_SUITE_SCHEME_RE = re.compile(r'"ccpp\.scheme"\(\)\s*<\{scheme_name = "(\w+)"')
 
 ###############################################################################
-def _find_schemes_in_py_suite(suite_path, python_exe):
+def _find_schemes_in_py_suite(suite_path, python_exe, library_dir=None):
 ###############################################################################
     """
     Run the Python suite <suite_path> with <python_exe> (an interpreter that
-    can import xdsl_ccpp) and return the names of the schemes it calls, in
+    can import xdsl_ccpp), with <library_dir> on its import path (see
+    _python_suite_env), and return the names of the schemes it calls, in
     call order without duplicates: the Python-suite counterpart of
     _find_schemes_in_sdf. The suite names its schemes without their
     metadata, so this needs no scheme files; the names are read from the
     suite IR it prints.
     """
     result = subprocess.run([python_exe, suite_path, "--legacy-mode"],
-                            capture_output=True, text=True, check=False)
+                            capture_output=True, text=True, check=False,
+                            env=_python_suite_env(library_dir))
     if result.returncode != 0:
         emsg = "ERROR: Unable to run Python suite '{}':\n{}"
         raise CamAutoGenError(emsg.format(suite_path, result.stderr))
@@ -606,8 +625,10 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
 
     <suite_dir> (CCPP_SUITE_DIR), when set, is the only directory searched
     for the suite definitions -- relative to src/physics/ncar_ccpp, or
-    absolute (e.g. 'suites-py' for the Python suites). Empty: SourceMods,
-    then suites, then test/test_suites.
+    absolute (e.g. 'suites-py' for the Python suites, 'test/test_suites-py'
+    for the Python test suites). Empty: SourceMods, then suites, then
+    test/test_suites. A Python suite can import the modules in suites-py
+    wherever it is.
     """
     if package_caps and ccpp_generator != "xdsl_ccpp":
         raise CamAutoGenError("ERROR: CCPP_PACKAGE_CAPS=TRUE requires "
@@ -625,6 +646,7 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     # Collect all possible Suite Definition File (SDF) locations
     atm_suites_path      = os.path.join(atm_phys_top_dir, "suites")
     atm_test_suites_path = os.path.join(atm_phys_top_dir, "test", "test_suites")
+    py_suite_library     = os.path.join(atm_phys_top_dir, "suites-py")
     suite_search         = [source_mods_dir, atm_suites_path, atm_test_suites_path]
     if suite_dir:
         suite_search = [os.path.join(atm_phys_top_dir, suite_dir)]
@@ -668,9 +690,9 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                 raise CamAutoGenError(emsg.format(sdf_path, ccpp_generator))
             # End if
             py_suite = sdf_path
-            suite_inputs.extend(_python_suite_inputs(sdf_path))
+            suite_inputs.extend(_python_suite_inputs(sdf_path, py_suite_library))
             sdf_schemes = _find_schemes_in_py_suite(
-                sdf_path, _resolve_xdsl_python(genccpp_dir))
+                sdf_path, _resolve_xdsl_python(genccpp_dir), py_suite_library)
         else:
             suite_inputs.append(sdf_path)
             # Given an SDF, find all the schemes it calls
@@ -796,9 +818,12 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             # Subprocess, not in-process: ccpp_dsl.py's error paths call
             # sys.exit() directly, which would otherwise kill this build.
             #
-            # preproc_defs -> xdsl_ccpp's --preproc-defs (its own Fortran-
-            # vs-.meta cross-validation). Warn-only for now, pending a full
-            # sweep of CAM-SIMA's scheme tree, so this never raises here.
+            # preproc_defs (CAM_CPPDEFS) -> xdsl_ccpp's --preproc-defs. As
+            # for capgen, they only resolve #ifdef blocks in the schemes'
+            # Fortran source when xdsl_ccpp checks it against the .meta
+            # files; they do not change the generated caps. The check is
+            # warn-only for now, pending a full sweep of CAM-SIMA's scheme
+            # tree, so this never raises here.
             resolved_vars_json = os.path.join(genccpp_dir, "resolved_vars.json")
             # XDSL_CCPP_PYTHON allows a venv Python to be specified when the
             # PBS job environment doesn't have the venv active.  Fall back to
@@ -889,7 +914,8 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                 # cmd += ["--gpu-debug-sync"]  # forces a device-vs-host sync after each write
             # end if
             result = subprocess.run(cmd, capture_output=True, text=True,
-                                    check=False)
+                                    check=False,
+                                    env=_python_suite_env(py_suite_library))
             if result.stderr:
                 _LOGGER.info("xdsl_ccpp stderr:\n%s", result.stderr)
             if result.returncode != 0:

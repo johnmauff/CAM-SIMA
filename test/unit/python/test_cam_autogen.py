@@ -59,6 +59,7 @@ from cam_autogen import _update_file, _find_schemes_in_sdf
 from cam_autogen import _find_metadata_files, generate_registry
 from cam_autogen import generate_physics_suites, generate_init_routines
 from cam_autogen import _find_suite_file, _find_schemes_in_py_suite
+from cam_autogen import _python_suite_inputs
 
 #Import necessary CCPP framework functions:
 from parse_tools import read_xml_file
@@ -693,48 +694,6 @@ class CamAutoGenTestRoutine(unittest.TestCase):
         #Remove extra test file:
         os.remove(os.path.join(self.test_src_mods_dir, "suite_simple.xml"))
 
-    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-    def test_xdsl_ccpp_rejects_preproc_defs(self):
-
-        """
-        Check that "generate_physics_suites" fails loudly, rather than
-        silently ignoring them, if preproc_defs are set for
-        ccpp_generator='xdsl_ccpp' -- xdsl_ccpp has no CPP-preprocessing
-        capability for .meta files yet.
-        """
-
-        #Copy test files into test SourceMods directory:
-        test_suite = os.path.join(self.test_suite_path, "write_init_files", "suite_simple.xml")
-        test_meta  = os.path.join(self.test_suite_path, "write_init_files", "temp_adjust.meta")
-        test_src  = os.path.join(self.test_suite_path, "write_init_files", "temp_adjust.F90")
-
-        shutil.copy2(test_suite, self.test_src_mods_dir)
-        shutil.copy2(test_meta, self.test_src_mods_dir)
-        shutil.copy2(test_src, self.test_src_mods_dir)
-
-        #Remove the pre-made "ccpp" directory so generation is forced to run:
-        shutil.rmtree(os.path.join(self.test_bldroot, "ccpp"))
-
-        #Expect "CamAutoGenError":
-        with self.assertRaises(CamAutoGenError) as autoerr:
-            _ = generate_physics_suites(self.test_cache, ["-DSOME_DEFINE"], "cam",
-                                        "simple", _CAM_ROOT_DIR, self.test_bldroot,
-                                        self.test_reg_dir, [],
-                                        self.test_src_mods_dir, False, False,
-                                        ccpp_generator="xdsl_ccpp")
-        #End with
-
-        #Check that the error message names the actual cause:
-        self.assertIn("does not support preprocessor defines", str(autoerr.exception))
-
-        #Remove extra test files:
-        test_meta_files = glob.glob(f"{self.test_src_mods_dir}"+os.sep+"temp_adjust.*")
-        for test_file in test_meta_files:
-            os.remove(test_file)
-        #End for
-        os.remove(os.path.join(self.test_src_mods_dir, "suite_simple.xml"))
-
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     #Tests for Python suites (xdsl_ccpp's Python frontend)
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -798,6 +757,33 @@ class CamAutoGenTestRoutine(unittest.TestCase):
                          ["temp_adjust", "other_scheme"])
         os.remove(suite_path)
 
+    def test_py_suite_imports_from_library(self):
+
+        """
+        Check that a Python suite outside the suite library (suites-py) can
+        import the library's modules, and that those modules, but not the
+        library's own suites, are inputs of the suite.
+        """
+
+        library = os.path.join(self.test_bldroot, "library")
+        os.makedirs(os.path.join(library, "parameterizations"))
+        helper = os.path.join(library, "parameterizations", "helper.py")
+        with open(helper, "w", encoding="utf-8") as helper_file:
+            helper_file.write("SCHEMES = ['temp_adjust', 'other_scheme']\n")
+        #End with
+        self._write_py_suite(library, name="production")
+        suite_path = self._write_py_suite(
+            self.test_src_mods_dir,
+            content="from parameterizations.helper import SCHEMES\n" + _FAKE_PY_SUITE)
+        self.assertEqual(_find_schemes_in_py_suite(suite_path, sys.executable, library),
+                         ["temp_adjust", "other_scheme"])
+        with self.assertRaises(CamAutoGenError):
+            _find_schemes_in_py_suite(suite_path, sys.executable)
+        #End with
+        self.assertEqual(_python_suite_inputs(suite_path, library), [suite_path, helper])
+        os.remove(suite_path)
+        shutil.rmtree(library)
+
     def test_failing_py_suite(self):
 
         """Check that a Python suite that fails to run raises CamAutoGenError."""
@@ -816,7 +802,7 @@ class CamAutoGenTestRoutine(unittest.TestCase):
         """
         Check that "generate_physics_suites" accepts a Python suite under
         xdsl_ccpp: its schemes are found by running it, and the suite plus
-        the Python modules beside it are the suite inputs given to the
+        the Python modules beside it and in suites-py are the suite inputs given to the
         build cache.
         """
 
@@ -846,7 +832,15 @@ class CamAutoGenTestRoutine(unittest.TestCase):
                                               ccpp_generator="xdsl_ccpp")
 
         self.assertEqual(gen_results[5], {"temp_adjust", "other_scheme"})
-        self.assertEqual(cache.suite_inputs, [suite_path, helper_path])
+        #The suite, the modules beside it, and those of the suite library
+        #(suites-py), whose own suites are not inputs:
+        self.assertEqual(cache.suite_inputs[0], suite_path)
+        self.assertIn(helper_path, cache.suite_inputs)
+        library = os.path.abspath(os.path.join(_CAM_ROOT_DIR, "src", "physics", "ncar_ccpp",
+                                               "suites-py"))
+        self.assertIn(os.path.join(library, "categories", "interface.py"), cache.suite_inputs)
+        self.assertFalse([path for path in cache.suite_inputs[1:]
+                          if os.path.basename(path).startswith("suite_")])
 
         for test_file in glob.glob(os.path.join(self.test_src_mods_dir, "*")):
             os.remove(test_file)
