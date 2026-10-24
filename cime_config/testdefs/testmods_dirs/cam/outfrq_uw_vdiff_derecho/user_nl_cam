@@ -5,6 +5,10 @@ ncdata_check = '/glade/campaign/cesm/community/amwg/sima_baselines/cam_sima_test
 ! tolerances for testing
 ncdata_check_err = .true.
 min_difference = 2e-15
+! Used instead by cam/cross_compiler_check_tolerance when this case's compiler
+! is not the snapshot's (gnu): the UW PBL's surface stress and diffusivities
+! differ by up to ~1.4e-10 between compilers (nvhpc, xdsl57n).
+! cross_compiler_min_difference = 1e-9
 
 ! cam5 vertical levels.
 pver = 30
