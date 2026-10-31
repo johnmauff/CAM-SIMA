@@ -29,6 +29,7 @@ from collections.abc import Iterable
 
 #Python unit-testing library:
 import unittest
+from unittest import mock
 
 #Add directory to python path:
 _CURRDIR = os.path.abspath(os.path.dirname(__file__))
@@ -186,6 +187,41 @@ class RecordingBuildCache(FakeBuildCache):
         """Record <sdfs>, then behave like FakeBuildCache.ccpp_mismatch."""
         self.suite_inputs = list(sdfs)
         return False
+
+class HostFilesBuildCache(FakeBuildCache):
+
+    """
+    FakeBuildCache holding cached scheme namelist metadata files.
+    It records the host files 'ccpp_mismatch' checks and the host
+    files 'update_ccpp' caches, and always reports a mismatch so
+    that 'update_ccpp' is called.
+    """
+
+    def __init__(self, nl_meta_files):
+        super().__init__()
+        self.nl_meta_files = list(nl_meta_files)
+        self.checked_host_files = None
+        self.cached_host_files = None
+
+    def ccpp_mismatch(self, sdfs, scheme_files, host_files,
+                      preproc_defs, kind_phys, ccpp_generator="capgen"):
+
+        """Record <host_files> and report a mismatch."""
+        self.checked_host_files = list(host_files)
+        return True
+
+    def update_ccpp(self, sdfs, scheme_files, host_files, xml_files,
+                    namelist_meta_files, namelist_groups, create_nl_file,
+                    preproc_defs, kind_phys, ccpp_generator="capgen"):
+
+        """Record <host_files>."""
+        self.cached_host_files = list(host_files)
+
+    def scheme_nl_metadata(self):
+
+        """Return the cached scheme namelist metadata files."""
+
+        return list(self.nl_meta_files)
 
 # Stand-in for a Python suite script: prints suite IR the way
 # xdsl_ccpp's export_suite does, without needing xdsl_ccpp installed.
@@ -631,6 +667,51 @@ class CamAutoGenTestRoutine(unittest.TestCase):
                 self.assertEqual(elem, expected_results[idx])
             #End if
         #End for
+
+        #Remove extra test files:
+        test_meta_files = glob.glob(f"{self.test_src_mods_dir}"+os.sep+"temp_adjust.*")
+        for test_file in test_meta_files:
+            os.remove(test_file)
+        #End for
+        os.remove(os.path.join(self.test_src_mods_dir, "suite_simple.xml"))
+
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    def test_generate_physics_suites_caches_checked_host_files(self):
+
+        """
+        Check that "generate_physics_suites" caches the same host files
+        that it passes to "ccpp_mismatch".  The scheme namelist metadata
+        files are added to the host files after that check; caching them
+        made every later build report a mismatch and regenerate the caps.
+        """
+
+        #Copy test files into test SourceMods directory:
+        test_suite = os.path.join(self.test_suite_path, "write_init_files", "suite_simple.xml")
+        test_meta  = os.path.join(self.test_suite_path, "write_init_files", "temp_adjust.meta")
+        test_src  = os.path.join(self.test_suite_path, "write_init_files", "temp_adjust.F90")
+
+        shutil.copy2(test_suite, self.test_src_mods_dir)
+        shutil.copy2(test_meta, self.test_src_mods_dir)
+        shutil.copy2(test_src, self.test_src_mods_dir)
+
+        #Namelist metadata file held in the build cache:
+        nl_meta_file = os.path.join(self.test_bldroot, "ccpp", "temp_adjust_namelist.meta")
+        test_cache = HostFilesBuildCache([nl_meta_file])
+
+        #Run physics suite generation function, without running
+        #capgen or reading its (non-existent) datatable:
+        with mock.patch("cam_autogen.capgen", return_value=None), \
+             mock.patch("cam_autogen.datatable_report", return_value=""):
+            _ = generate_physics_suites(test_cache, "UNSET", "cam", "simple",
+                                        _CAM_ROOT_DIR, self.test_bldroot,
+                                        self.test_reg_dir, [],
+                                        self.test_src_mods_dir, False, False)
+        #End with
+
+        #The cached host files must match the checked host files:
+        self.assertNotIn(nl_meta_file, test_cache.cached_host_files)
+        self.assertEqual(test_cache.cached_host_files, test_cache.checked_host_files)
 
         #Remove extra test files:
         test_meta_files = glob.glob(f"{self.test_src_mods_dir}"+os.sep+"temp_adjust.*")

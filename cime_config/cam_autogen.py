@@ -794,6 +794,11 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
         scheme_nl_meta_files = build_cache.scheme_nl_metadata()
         nl_groups = build_cache.scheme_nl_groups()
     # end if
+    # Cache the host files as ccpp_mismatch saw them above, without the
+    # namelist meta files: the cache tracks those separately
+    # (scheme_nl_meta_files, xml_nl_mismatch), and caching them here made
+    # every later ccpp_mismatch call report a change and regenerate.
+    cache_host_files = list(host_files)
     #Add the namelist meta files to the host files list
     #if present:
     if scheme_nl_meta_files:
@@ -1008,9 +1013,10 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
 
     if do_gen_ccpp or do_gen_nl:
         # save build details in the build cache
-        build_cache.update_ccpp(suite_inputs, scheme_files, host_files, xml_files,
-                                scheme_nl_meta_files, nl_groups, create_nl_file,
-                                preproc_cache_str, kind_types, cache_generator)
+        build_cache.update_ccpp(suite_inputs, scheme_files, cache_host_files,
+                                xml_files, scheme_nl_meta_files, nl_groups,
+                                create_nl_file, preproc_cache_str, kind_types,
+                                cache_generator)
         request = DatatableReport("utility_files")
         ufiles_str = datatable_report(cap_output_file, request, ";")
         utility_files = [f for f in ufiles_str.split(';') if f]
