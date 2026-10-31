@@ -77,7 +77,8 @@ class FakeCase:
             "OPENACC_GPU_OFFLOAD": False,
             "CCPP_GENERATOR": "capgen",
             "CCPP_PACKAGE_CAPS": False,
-            "CCPP_SUITE_DIR": ""
+            "CCPP_SUITE_DIR": "",
+            "GMAKE_J": 1
             }
 
     def get_value(self, key):

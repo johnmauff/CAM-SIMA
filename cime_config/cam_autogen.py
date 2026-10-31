@@ -604,7 +604,7 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                             phys_suites_str, atm_root, bldroot,
                             reg_dir, reg_files, source_mods_dir,
                             gpu_flag, force, ccpp_generator="capgen",
-                            package_caps=False, suite_dir=""):
+                            package_caps=False, suite_dir="", jobs=1):
 ###############################################################################
     """
     Generate the source for the configured physics suites,
@@ -629,6 +629,11 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     for the Python test suites). Empty: SourceMods, then suites, then
     test/test_suites. A Python suite can import the modules in suites-py
     wherever it is.
+
+    <jobs> (xdsl_ccpp only; the case's GMAKE_J) is passed as --jobs: the
+    number of processes xdsl_ccpp uses to check the schemes' Fortran
+    against their metadata, most of its run time. It does not change the
+    generated caps, so it is not recorded in the build cache.
     """
     if package_caps and ccpp_generator != "xdsl_ccpp":
         raise CamAutoGenError("ERROR: CCPP_PACKAGE_CAPS=TRUE requires "
@@ -872,6 +877,9 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             # end if
             if package_caps:
                 cmd += ["--package-caps"]
+            # end if
+            if jobs > 1:
+                cmd += ["--jobs", str(jobs)]
             # end if
             # Opt-in scheme I/O capture (xdsl-ccpp backlog item
             # scheme-io-capture): never on by default, no effect on a

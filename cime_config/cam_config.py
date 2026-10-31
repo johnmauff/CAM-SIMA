@@ -196,6 +196,9 @@ class ConfigCAM:
         self.__package_caps = bool(case.get_value("CCPP_PACKAGE_CAPS"))
         # Directory to read the suite definition from (empty: the default search).
         self.__suite_dir = case.get_value("CCPP_SUITE_DIR") or ""
+        # The build's parallelism, also used for xdsl_ccpp's parallel
+        # Fortran-vs-.meta check (generation runs before compiling).
+        self.__gmake_j = int(case.get_value("GMAKE_J") or 1)
 
         # Save CPP definitions as a list:
         self.__cppdefs = [x for x in case.get_value("CAM_CPPDEFS").split() if x]
@@ -904,7 +907,8 @@ class ConfigCAM:
                                           self.__gpu_flag, force_ccpp,
                                           self.__ccpp_generator,
                                           package_caps=self.__package_caps,
-                                          suite_dir=self.__suite_dir)
+                                          suite_dir=self.__suite_dir,
+                                          jobs=self.__gmake_j)
         phys_dirs, force_init, _, nml_fils, resolved_vars_source, scheme_names = retvals
 
         # Add namelist definition files to dictionary:
