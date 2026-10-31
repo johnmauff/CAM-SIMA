@@ -932,11 +932,17 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             result = subprocess.run(cmd, capture_output=True, text=True,
                                     check=False,
                                     env=_python_suite_env(py_suite_library))
-            if result.stderr:
-                _LOGGER.info("xdsl_ccpp stderr:\n%s", result.stderr)
+            # Prefix each line so xdsl_ccpp's messages stand out in the build
+            # output, and report them once: in the error if generation
+            # failed, otherwise in the log.
+            xdsl_msgs = "".join(f"xDSL-ccpp: {line}\n"
+                                for line in result.stderr.splitlines())
             if result.returncode != 0:
                 emsg = "ERROR: xdsl_ccpp cap generation failed:\n{}"
-                raise CamAutoGenError(emsg.format(result.stderr))
+                raise CamAutoGenError(emsg.format(xdsl_msgs))
+            # end if
+            if xdsl_msgs:
+                _LOGGER.info("%s", xdsl_msgs.rstrip("\n"))
             # end if
             capgen_db = resolved_vars_json
         else:
