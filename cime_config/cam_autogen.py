@@ -863,6 +863,9 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                 # CAM-SIMA's .meta files use the legacy horizontal_loop_extent
                 # convention.
                 "--legacy-mode",
+                # One summary line per deprecated standard name; --verbose 2
+                # would list every argument using it, by .meta file.
+                "--verbose", "1",
                 # Generates cam_ccpp_physics_* lifecycle wrappers for phys_comp.F90.
                 "--cam-host",
                 "--framework-src-dir",
