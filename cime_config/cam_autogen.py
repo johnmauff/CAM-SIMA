@@ -604,7 +604,8 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                             phys_suites_str, atm_root, bldroot,
                             reg_dir, reg_files, source_mods_dir,
                             gpu_flag, force, ccpp_generator="capgen",
-                            package_caps=False, suite_dir="", jobs=1):
+                            package_caps=False, suite_dir="", jobs=1,
+                            case_name=""):
 ###############################################################################
     """
     Generate the source for the configured physics suites,
@@ -634,6 +635,11 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     number of processes xdsl_ccpp uses to check the schemes' Fortran
     against their metadata, most of its run time. It does not change the
     generated caps, so it is not recorded in the build cache.
+
+    <case_name> (xdsl_ccpp scheme I/O capture only; the case's CASE) is
+    passed as --capture-label when a capture is configured: it is written
+    into every capture file and names the data directory under the test
+    driver directory.
     """
     if package_caps and ccpp_generator != "xdsl_ccpp":
         raise CamAutoGenError("ERROR: CCPP_PACKAGE_CAPS=TRUE requires "
@@ -921,6 +927,11 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                         os.makedirs(_xdsl_capture_driver_dir)
                     # end if
                     cmd += ["--capture-test-driver-dir", _xdsl_capture_driver_dir]
+                # end if
+                if case_name:
+                    # Written into every capture file; with a driver
+                    # directory, the data goes to <driver dir>/<case_name>.
+                    cmd += ["--capture-label", case_name]
                 # end if
             # end if
             if gpu_flag:

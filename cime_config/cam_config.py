@@ -199,6 +199,8 @@ class ConfigCAM:
         # The build's parallelism, also used for xdsl_ccpp's parallel
         # Fortran-vs-.meta check (generation runs before compiling).
         self.__gmake_j = int(case.get_value("GMAKE_J") or 1)
+        # xdsl_ccpp scheme I/O capture: the label of the captured data.
+        self.__case_name = case.get_value("CASE")
 
         # Save CPP definitions as a list:
         self.__cppdefs = [x for x in case.get_value("CAM_CPPDEFS").split() if x]
@@ -908,7 +910,8 @@ class ConfigCAM:
                                           self.__ccpp_generator,
                                           package_caps=self.__package_caps,
                                           suite_dir=self.__suite_dir,
-                                          jobs=self.__gmake_j)
+                                          jobs=self.__gmake_j,
+                                          case_name=self.__case_name)
         phys_dirs, force_init, _, nml_fils, resolved_vars_source, scheme_names = retvals
 
         # Add namelist definition files to dictionary:

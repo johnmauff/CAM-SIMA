@@ -67,6 +67,7 @@ class FakeCase:
             "COMP_ATM" : "cam",
             "EXEROOT"  : "/some/made-up/path",
             "CASEROOT" : "/another/made-up/path",
+            "CASE" : "made_up_case",
             "CAM_CONFIG_OPTS" : "--dyn none --physics-suites mango;papaya",
             "COMP_ROOT_DIR_ATM" : "/a/third/made-up/path",
             "CAM_CPPDEFS" : "UNSET",
