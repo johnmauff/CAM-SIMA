@@ -20,6 +20,7 @@ import filecmp
 import glob
 import re
 import subprocess
+import hashlib
 import xml.etree.ElementTree as _ET
 
 #pylint: disable=wrong-import-position
@@ -600,6 +601,58 @@ def generate_registry(data_search, build_cache, atm_root, bldroot,
     return genreg_dir, do_gen_registry, reg_file_paths, ic_names, registry_constituents, vars_init_value
 
 ###############################################################################
+def _xdsl_capture_settings(genccpp_dir):
+###############################################################################
+    """
+    The scheme I/O capture settings of an xdsl_ccpp build:
+    (scheme_spec, driver_dir), each "" when unset. Each comes from its
+    environment variable (XDSL_CCPP_CAPTURE_SCHEME,
+    XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR), else from its cache file in
+    genccpp_dir -- a value exported in an interactive shell before
+    case.submit does not reliably reach the PBS batch job, so the value
+    used is persisted there (by the caller) and read back on any
+    invocation without the variable. scheme_spec is a SCHEME[:PHASE]
+    entry or the path of a file listing them, one per line; a relative
+    file path is made absolute against the current directory.
+    """
+    values = []
+    for env_var, cache_name in (
+            ("XDSL_CCPP_CAPTURE_SCHEME", ".xdsl_ccpp_capture_scheme"),
+            ("XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR",
+             ".xdsl_ccpp_capture_test_driver_dir")):
+        value = os.environ.get(env_var, "")
+        cache_file = os.path.join(genccpp_dir, cache_name)
+        if not value and os.path.isfile(cache_file):
+            with open(cache_file) as cfile:
+                value = cfile.read().strip()
+            # end with
+        # end if
+        values.append(value)
+    # end for
+    scheme_spec, driver_dir = values
+    if scheme_spec and os.path.isfile(scheme_spec):
+        scheme_spec = os.path.abspath(scheme_spec)
+    # end if
+    return scheme_spec, driver_dir
+
+###############################################################################
+def _xdsl_capture_fingerprint(scheme_spec, driver_dir, case_name):
+###############################################################################
+    """
+    A short hash of everything that shapes the capture code (the scheme
+    entry or the contents of a scheme list file, the driver directory and
+    the case name), so the build cache regenerates when any of it changes.
+    """
+    digest = hashlib.sha1()
+    digest.update(f"{scheme_spec}\n{driver_dir}\n{case_name}\n".encode())
+    if os.path.isfile(scheme_spec):
+        with open(scheme_spec, "rb") as sfile:
+            digest.update(sfile.read())
+        # end with
+    # end if
+    return digest.hexdigest()[:12]
+
+###############################################################################
 def generate_physics_suites(build_cache, preproc_defs, host_name,
                             phys_suites_str, atm_root, bldroot,
                             reg_dir, reg_files, source_mods_dir,
@@ -646,6 +699,17 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                               f"CCPP_GENERATOR=xdsl_ccpp (got '{ccpp_generator}')")
     # end if
     cache_generator = ccpp_generator + ("+package_caps" if package_caps else "")
+    # Scheme I/O capture (xdsl_ccpp only, opt-in): part of the cached
+    # generator, so a changed capture configuration regenerates the caps.
+    capture_scheme, capture_driver_dir = "", ""
+    if ccpp_generator == "xdsl_ccpp":
+        capture_scheme, capture_driver_dir = _xdsl_capture_settings(
+            os.path.join(bldroot, "ccpp"))
+        if capture_scheme:
+            cache_generator += "+capture:" + _xdsl_capture_fingerprint(
+                capture_scheme, capture_driver_dir, case_name)
+        # end if
+    # end if
 
     # Physics source gets copied into blddir
     physics_blddir = os.path.join(bldroot, "ccpp_physics")
@@ -892,30 +956,14 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             # end if
             # Opt-in scheme I/O capture (xdsl-ccpp backlog item
             # scheme-io-capture): never on by default, no effect on a
-            # normal build. Same env-var-with-cache-file-fallback pattern
-            # as XDSL_CCPP_PYTHON above, for the same reason -- a value
-            # exported in an interactive shell before case.submit does not
-            # reliably propagate into the PBS batch job's own environment,
-            # so the value actually used is always persisted to a cache
-            # file in genccpp_dir and re-read from there on any
-            # invocation that doesn't have the env var set (e.g. a
-            # run-phase-only invocation, or a build phase whose PBS job
-            # environment didn't inherit it).
+            # normal build. Settings from _xdsl_capture_settings, above;
+            # the values used are persisted to their cache files.
             _xdsl_capture_scheme_cache = os.path.join(
                 genccpp_dir, ".xdsl_ccpp_capture_scheme")
-            _xdsl_capture_scheme = os.environ.get("XDSL_CCPP_CAPTURE_SCHEME", "")
-            if not _xdsl_capture_scheme and os.path.isfile(_xdsl_capture_scheme_cache):
-                with open(_xdsl_capture_scheme_cache) as _f:
-                    _xdsl_capture_scheme = _f.read().strip()
-            # end if
+            _xdsl_capture_scheme = capture_scheme
             _xdsl_capture_driver_dir_cache = os.path.join(
                 genccpp_dir, ".xdsl_ccpp_capture_test_driver_dir")
-            _xdsl_capture_driver_dir = os.environ.get(
-                "XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR", "")
-            if not _xdsl_capture_driver_dir and os.path.isfile(_xdsl_capture_driver_dir_cache):
-                with open(_xdsl_capture_driver_dir_cache) as _f:
-                    _xdsl_capture_driver_dir = _f.read().strip()
-            # end if
+            _xdsl_capture_driver_dir = capture_driver_dir
             if _xdsl_capture_scheme:
                 with open(_xdsl_capture_scheme_cache, "w") as _f:
                     _f.write(_xdsl_capture_scheme)

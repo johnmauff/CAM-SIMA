@@ -61,6 +61,7 @@ from cam_autogen import _find_metadata_files, generate_registry
 from cam_autogen import generate_physics_suites, generate_init_routines
 from cam_autogen import _find_suite_file, _find_schemes_in_py_suite
 from cam_autogen import _python_suite_inputs
+from cam_autogen import _xdsl_capture_settings, _xdsl_capture_fingerprint
 
 #Import necessary CCPP framework functions:
 from parse_tools import read_xml_file
@@ -989,6 +990,61 @@ class CamAutoGenTestRoutine(unittest.TestCase):
 
         #Check that the output path matches what is expected:
         self.assertEqual(gen_path, expected_path)
+
+class XdslCaptureSettingsTest(unittest.TestCase):
+    """The scheme I/O capture settings (xdsl_ccpp) and their build-cache
+    fingerprint."""
+
+    def setUp(self):
+        self.tmp_dir = os.path.join(_CURRDIR, "tmp", "xdsl_capture")
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+        os.makedirs(self.tmp_dir)
+        self.list_file = os.path.join(self.tmp_dir, "schemes.txt")
+        with open(self.list_file, "w") as lfile:
+            lfile.write("kessler\ngeopotential_temp\n")
+        # end with
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def test_settings_from_cache_files_when_env_unset(self):
+        """Without the environment variables, the cache files are read."""
+        for name, value in ((".xdsl_ccpp_capture_scheme", "kessler:run"),
+                            (".xdsl_ccpp_capture_test_driver_dir", "/drivers")):
+            with open(os.path.join(self.tmp_dir, name), "w") as cfile:
+                cfile.write(value + "\n")
+            # end with
+        # end for
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("XDSL_CCPP_CAPTURE_SCHEME", None)
+            os.environ.pop("XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR", None)
+            self.assertEqual(_xdsl_capture_settings(self.tmp_dir),
+                             ("kessler:run", "/drivers"))
+        # end with
+
+    def test_relative_list_file_made_absolute(self):
+        """A relative scheme-list path becomes absolute."""
+        rel_path = os.path.relpath(self.list_file)
+        with mock.patch.dict(os.environ, {"XDSL_CCPP_CAPTURE_SCHEME": rel_path,
+                                          "XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR": ""}):
+            self.assertEqual(_xdsl_capture_settings(self.tmp_dir),
+                             (os.path.abspath(self.list_file), ""))
+        # end with
+
+    def test_fingerprint_follows_the_list_contents(self):
+        """Editing the scheme list changes the fingerprint."""
+        before = _xdsl_capture_fingerprint(self.list_file, "/drivers", "case")
+        self.assertEqual(before, _xdsl_capture_fingerprint(self.list_file, "/drivers", "case"))
+        with open(self.list_file, "a") as lfile:
+            lfile.write("qneg\n")
+        # end with
+        self.assertNotEqual(before, _xdsl_capture_fingerprint(self.list_file, "/drivers", "case"))
+
+    def test_fingerprint_follows_dir_and_case(self):
+        """Another driver directory or case name changes the fingerprint."""
+        base = _xdsl_capture_fingerprint("kessler", "/drivers", "case")
+        self.assertNotEqual(base, _xdsl_capture_fingerprint("kessler", "/other", "case"))
+        self.assertNotEqual(base, _xdsl_capture_fingerprint("kessler", "/drivers", "case2"))
 
 #################################################
 #Run unit tests if this script is called directly
