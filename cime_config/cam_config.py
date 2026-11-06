@@ -194,6 +194,16 @@ class ConfigCAM:
         self.__ccpp_generator = case.get_value("CCPP_GENERATOR")
         # xdsl_ccpp only: one Fortran module per package of a Python suite.
         self.__package_caps = bool(case.get_value("CCPP_PACKAGE_CAPS"))
+        # xdsl_ccpp only: the interpreter with xdsl_ccpp installed (empty:
+        # $XDSL_CCPP_PYTHON, the build-directory cache, this interpreter).
+        self.__xdsl_python = case.get_value("XDSL_CCPP_PYTHON") or ""
+        # xdsl_ccpp scheme I/O capture: what to capture and where the test
+        # drivers go. None (not "") in a case created before these
+        # variables existed, which then falls back to the build cache.
+        capture_values = (case.get_value("XDSL_CCPP_CAPTURE_SCHEME"),
+                          case.get_value("XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR"))
+        self.__capture_case_values = (None if None in capture_values
+                                      else capture_values)
         # Directory to read the suite definition from (empty: the default search).
         self.__suite_dir = case.get_value("CCPP_SUITE_DIR") or ""
         # The build's parallelism, also used for xdsl_ccpp's parallel
@@ -911,7 +921,9 @@ class ConfigCAM:
                                           package_caps=self.__package_caps,
                                           suite_dir=self.__suite_dir,
                                           jobs=self.__gmake_j,
-                                          case_name=self.__case_name)
+                                          case_name=self.__case_name,
+                                          xdsl_python=self.__xdsl_python,
+                                          capture_case_values=self.__capture_case_values)
         phys_dirs, force_init, _, nml_fils, resolved_vars_source, scheme_names = retvals
 
         # Add namelist definition files to dictionary:
@@ -932,7 +944,8 @@ class ConfigCAM:
                                           force_ccpp, force_init,
                                           source_mods_dir, gen_fort_indent,
                                           resolved_vars_source, ic_names, registry_constituents,
-                                          vars_init_value, self.__ccpp_generator)
+                                          vars_init_value, self.__ccpp_generator,
+                                          xdsl_python=self.__xdsl_python)
 
         #Add registry path to config object:
         init_dir_desc = "Location of auto-generated physics initialization code."

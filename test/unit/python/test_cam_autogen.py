@@ -62,6 +62,7 @@ from cam_autogen import generate_physics_suites, generate_init_routines
 from cam_autogen import _find_suite_file, _find_schemes_in_py_suite
 from cam_autogen import _python_suite_inputs
 from cam_autogen import _xdsl_capture_settings, _xdsl_capture_fingerprint
+from cam_autogen import _resolve_xdsl_python
 
 #Import necessary CCPP framework functions:
 from parse_tools import read_xml_file
@@ -1022,6 +1023,44 @@ class XdslCaptureSettingsTest(unittest.TestCase):
                              ("kessler:run", "/drivers"))
         # end with
 
+    def _write_capture_cache(self):
+        for name, value in ((".xdsl_ccpp_capture_scheme", "kessler:run"),
+                            (".xdsl_ccpp_capture_test_driver_dir", "/drivers")):
+            with open(os.path.join(self.tmp_dir, name), "w") as cfile:
+                cfile.write(value + "\n")
+            # end with
+        # end for
+
+    def _without_capture_env(self):
+        patcher = mock.patch.dict(os.environ, {}, clear=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        os.environ.pop("XDSL_CCPP_CAPTURE_SCHEME", None)
+        os.environ.pop("XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR", None)
+
+    def test_case_variables_are_used(self):
+        """The case variables give the settings, ahead of the cache."""
+        self._write_capture_cache()
+        self._without_capture_env()
+        self.assertEqual(_xdsl_capture_settings(self.tmp_dir, ("qneg", "/cased")),
+                         ("qneg", "/cased"))
+
+    def test_empty_case_variables_mean_no_capture(self):
+        """In a case with the variables, empty means no capture, whatever
+        an old cache file says."""
+        self._write_capture_cache()
+        self._without_capture_env()
+        self.assertEqual(_xdsl_capture_settings(self.tmp_dir, ("", "")), ("", ""))
+
+    def test_environment_overrides_case_variables(self):
+        """An environment variable wins over its case variable."""
+        self._write_capture_cache()
+        with mock.patch.dict(os.environ, {"XDSL_CCPP_CAPTURE_SCHEME": "dadadj",
+                                          "XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR": ""}):
+            self.assertEqual(_xdsl_capture_settings(self.tmp_dir, ("qneg", "/cased")),
+                             ("dadadj", "/cased"))
+        # end with
+
     def test_relative_list_file_made_absolute(self):
         """A relative scheme-list path becomes absolute."""
         rel_path = os.path.relpath(self.list_file)
@@ -1045,6 +1084,77 @@ class XdslCaptureSettingsTest(unittest.TestCase):
         base = _xdsl_capture_fingerprint("kessler", "/drivers", "case")
         self.assertNotEqual(base, _xdsl_capture_fingerprint("kessler", "/other", "case"))
         self.assertNotEqual(base, _xdsl_capture_fingerprint("kessler", "/drivers", "case2"))
+
+class XdslPythonTest(unittest.TestCase):
+    """The interpreter that runs xdsl_ccpp: $XDSL_CCPP_PYTHON, the case's
+    XDSL_CCPP_PYTHON, the build-directory cache, then the running Python;
+    the build stops if it cannot import xdsl_ccpp."""
+
+    def setUp(self):
+        self.tmp_dir = os.path.join(_CURRDIR, "tmp", "xdsl_python")
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+        os.makedirs(self.tmp_dir)
+        # These tests run under a Python with xdsl_ccpp installed (the venv).
+        self.good = sys.executable
+        # A stand-in "python" that cannot import xdsl_ccpp: it always fails.
+        self.bad = os.path.join(self.tmp_dir, "python_without_xdsl_ccpp")
+        with open(self.bad, "w") as bfile:
+            bfile.write("#!/bin/sh\nexit 1\n")
+        # end with
+        os.chmod(self.bad, 0o755)
+        self.cache = os.path.join(self.tmp_dir, ".xdsl_ccpp_python")
+        self.env = mock.patch.dict(os.environ, {}, clear=False)
+        self.env.start()
+        os.environ.pop("XDSL_CCPP_PYTHON", None)
+
+    def tearDown(self):
+        self.env.stop()
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def _write_cache(self, value):
+        with open(self.cache, "w") as cfile:
+            cfile.write(value)
+        # end with
+
+    def test_environment_variable_comes_first(self):
+        """$XDSL_CCPP_PYTHON wins over the case variable and the cache."""
+        self._write_cache(self.bad)
+        os.environ["XDSL_CCPP_PYTHON"] = self.good
+        self.assertEqual(_resolve_xdsl_python(self.tmp_dir, self.bad), self.good)
+
+    def test_case_variable_comes_before_the_cache(self):
+        """The case's XDSL_CCPP_PYTHON wins over a stale cache: a clean
+        build directory or an old fallback in the cache does not matter."""
+        self._write_cache(self.bad)
+        self.assertEqual(_resolve_xdsl_python(self.tmp_dir, self.good), self.good)
+
+    def test_cache_used_without_env_or_case_variable(self):
+        """With neither variable set, the cached interpreter is used."""
+        self._write_cache(self.good)
+        self.assertEqual(_resolve_xdsl_python(self.tmp_dir), self.good)
+
+    def test_interpreter_without_xdsl_ccpp_stops_the_build(self):
+        """An interpreter that cannot import xdsl_ccpp is an error naming
+        where it came from, not a failure later in the cap generation."""
+        with self.assertRaises(CamAutoGenError) as cerr:
+            _resolve_xdsl_python(self.tmp_dir, self.bad)
+        # end with
+        self.assertIn(self.bad, str(cerr.exception))
+        self.assertIn("the case's XDSL_CCPP_PYTHON", str(cerr.exception))
+        self.assertIn("./xmlchange XDSL_CCPP_PYTHON=", str(cerr.exception))
+        self._write_cache(self.bad)
+        with self.assertRaises(CamAutoGenError) as cerr:
+            _resolve_xdsl_python(self.tmp_dir)
+        # end with
+        self.assertIn("the cache file", str(cerr.exception))
+
+    def test_missing_interpreter_stops_the_build(self):
+        """A path that does not exist is the same error."""
+        missing = os.path.join(self.tmp_dir, "no_such_python")
+        with self.assertRaises(CamAutoGenError) as cerr:
+            _resolve_xdsl_python(self.tmp_dir, missing)
+        # end with
+        self.assertIn(missing, str(cerr.exception))
 
 #################################################
 #Run unit tests if this script is called directly

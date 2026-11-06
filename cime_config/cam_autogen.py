@@ -327,21 +327,50 @@ def _python_suite_env(library_dir):
     return env
 
 ###############################################################################
-def _resolve_xdsl_python(genccpp_dir):
+def _resolve_xdsl_python(genccpp_dir, case_python=""):
 ###############################################################################
     """
     Return the Python interpreter used to run xdsl_ccpp: $XDSL_CCPP_PYTHON,
+    else <case_python> (the case's XDSL_CCPP_PYTHON, in env_build.xml),
     else the value cached in <genccpp_dir> by the last cap generation, else
-    the interpreter running this script.
+    the interpreter running this script. Raise CamAutoGenError if that
+    interpreter cannot import xdsl_ccpp, naming where the value came from,
+    rather than failing later inside the cap generation.
     """
-    xdsl_python = os.environ.get("XDSL_CCPP_PYTHON", "")
     xdsl_python_cache = os.path.join(genccpp_dir, ".xdsl_ccpp_python")
+    xdsl_python = os.environ.get("XDSL_CCPP_PYTHON", "")
+    source = "the XDSL_CCPP_PYTHON environment variable"
+    if not xdsl_python and case_python:
+        xdsl_python = case_python
+        source = "the case's XDSL_CCPP_PYTHON (env_build.xml)"
+    # End if
     if not xdsl_python and os.path.isfile(xdsl_python_cache):
         with open(xdsl_python_cache) as cache_file:
             xdsl_python = cache_file.read().strip()
         # End with
+        source = f"the cache file {xdsl_python_cache}"
     # End if
-    return xdsl_python or sys.executable
+    if not xdsl_python:
+        xdsl_python = sys.executable
+        source = "the Python running the build (XDSL_CCPP_PYTHON is not set)"
+    # End if
+    probe = ("import importlib.util, sys; "
+             "sys.exit(importlib.util.find_spec('xdsl_ccpp') is None)")
+    try:
+        found = subprocess.run([xdsl_python, "-c", probe],
+                               check=False, capture_output=True).returncode == 0
+    except OSError:
+        found = False
+    # End try
+    if not found:
+        raise CamAutoGenError(
+            f"ERROR: CCPP_GENERATOR=xdsl_ccpp, but the Python interpreter "
+            f"'{xdsl_python}' (from {source}) cannot import xdsl_ccpp. Set "
+            f"the case's XDSL_CCPP_PYTHON to a Python with xdsl_ccpp "
+            f"installed, e.g. "
+            f"./xmlchange XDSL_CCPP_PYTHON=/path/to/venv/bin/python")
+    # End if
+    return xdsl_python
 
 # One scheme call in a Python suite's IR, e.g.
 #   "ccpp.scheme"() <{scheme_name = "rrtmgp_pre"}> : () -> ()
@@ -601,26 +630,38 @@ def generate_registry(data_search, build_cache, atm_root, bldroot,
     return genreg_dir, do_gen_registry, reg_file_paths, ic_names, registry_constituents, vars_init_value
 
 ###############################################################################
-def _xdsl_capture_settings(genccpp_dir):
+def _xdsl_capture_settings(genccpp_dir, case_values=None):
 ###############################################################################
     """
     The scheme I/O capture settings of an xdsl_ccpp build:
     (scheme_spec, driver_dir), each "" when unset. Each comes from its
     environment variable (XDSL_CCPP_CAPTURE_SCHEME,
-    XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR), else from its cache file in
-    genccpp_dir -- a value exported in an interactive shell before
-    case.submit does not reliably reach the PBS batch job, so the value
-    used is persisted there (by the caller) and read back on any
-    invocation without the variable. scheme_spec is a SCHEME[:PHASE]
+    XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR), else from the case variable of
+    the same name (env_build.xml; <case_values> is their pair of values,
+    None for a case created before those variables existed), else --
+    only for such an older case -- from its cache file in genccpp_dir.
+    In a case that has the variables they are the whole configuration:
+    an empty value means no capture, whatever an old cache file says,
+    and a clean build directory loses nothing. The cache files are
+    still written (by the caller) for older cases, where a value
+    exported in an interactive shell before case.submit does not
+    reliably reach the PBS batch job. scheme_spec is a SCHEME[:PHASE]
     entry or the path of a file listing them, one per line; a relative
     file path is made absolute against the current directory.
     """
     values = []
-    for env_var, cache_name in (
+    if case_values is None:
+        case_values = (None, None)
+    # end if
+    for (env_var, cache_name), case_value in zip((
             ("XDSL_CCPP_CAPTURE_SCHEME", ".xdsl_ccpp_capture_scheme"),
             ("XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR",
-             ".xdsl_ccpp_capture_test_driver_dir")):
+             ".xdsl_ccpp_capture_test_driver_dir")), case_values):
         value = os.environ.get(env_var, "")
+        if not value and case_value is not None:
+            values.append(case_value.strip())
+            continue
+        # end if
         cache_file = os.path.join(genccpp_dir, cache_name)
         if not value and os.path.isfile(cache_file):
             with open(cache_file) as cfile:
@@ -658,7 +699,8 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                             reg_dir, reg_files, source_mods_dir,
                             gpu_flag, force, ccpp_generator="capgen",
                             package_caps=False, suite_dir="", jobs=1,
-                            case_name=""):
+                            case_name="", xdsl_python="",
+                            capture_case_values=None):
 ###############################################################################
     """
     Generate the source for the configured physics suites,
@@ -693,6 +735,13 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     passed as --capture-label when a capture is configured: it is written
     into every capture file and names the data directory under the test
     driver directory.
+
+    <xdsl_python> (xdsl_ccpp only; the case's XDSL_CCPP_PYTHON) is the
+    interpreter with xdsl_ccpp installed; see _resolve_xdsl_python.
+
+    <capture_case_values> (xdsl_ccpp only) is the case's
+    (XDSL_CCPP_CAPTURE_SCHEME, XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR), or None
+    for a case without those variables; see _xdsl_capture_settings.
     """
     if package_caps and ccpp_generator != "xdsl_ccpp":
         raise CamAutoGenError("ERROR: CCPP_PACKAGE_CAPS=TRUE requires "
@@ -704,7 +753,7 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     capture_scheme, capture_driver_dir = "", ""
     if ccpp_generator == "xdsl_ccpp":
         capture_scheme, capture_driver_dir = _xdsl_capture_settings(
-            os.path.join(bldroot, "ccpp"))
+            os.path.join(bldroot, "ccpp"), capture_case_values)
         if capture_scheme:
             cache_generator += "+capture:" + _xdsl_capture_fingerprint(
                 capture_scheme, capture_driver_dir, case_name)
@@ -767,7 +816,8 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             py_suite = sdf_path
             suite_inputs.extend(_python_suite_inputs(sdf_path, py_suite_library))
             sdf_schemes = _find_schemes_in_py_suite(
-                sdf_path, _resolve_xdsl_python(genccpp_dir), py_suite_library)
+                sdf_path, _resolve_xdsl_python(genccpp_dir, xdsl_python),
+                py_suite_library)
         else:
             suite_inputs.append(sdf_path)
             # Given an SDF, find all the schemes it calls
@@ -905,13 +955,12 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             # warn-only for now, pending a full sweep of CAM-SIMA's scheme
             # tree, so this never raises here.
             resolved_vars_json = os.path.join(genccpp_dir, "resolved_vars.json")
-            # XDSL_CCPP_PYTHON allows a venv Python to be specified when the
-            # PBS job environment doesn't have the venv active.  Fall back to
-            # a cached value written during the last successful cap generation
-            # (see _xdsl_python_cache below) so the run phase works without
-            # any env-var setup in the job script.
+            # The interpreter with xdsl_ccpp installed: $XDSL_CCPP_PYTHON,
+            # the case's XDSL_CCPP_PYTHON, or the value cached below by the
+            # last cap generation (see _resolve_xdsl_python, which stops the
+            # build if it cannot import xdsl_ccpp).
             _xdsl_python_cache = os.path.join(genccpp_dir, ".xdsl_ccpp_python")
-            _xdsl_python = _resolve_xdsl_python(genccpp_dir)
+            _xdsl_python = _resolve_xdsl_python(genccpp_dir, xdsl_python)
             # Persist so run-phase invocations can find it without the env var.
             with open(_xdsl_python_cache, "w") as _f:
                 _f.write(_xdsl_python)
@@ -1120,7 +1169,8 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
 def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
                            source_mods_dir, gen_fort_indent,
                            cap_database, ic_names, registry_constituents,
-                           vars_init_value, ccpp_generator="capgen"):
+                           vars_init_value, ccpp_generator="capgen",
+                           xdsl_python=""):
 ###############################################################################
     """
     Generate the host model initialization source code files
@@ -1131,6 +1181,7 @@ def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
 
     <ccpp_generator> ('capgen' or 'xdsl_ccpp') selects which ResolvedVar
     adapter wraps <cap_database> (a CCPPDatabaseObj vs. a JSON path).
+    <xdsl_python> is the case's XDSL_CCPP_PYTHON (see _resolve_xdsl_python).
     """
 
     # Add new directory to build path:
@@ -1168,19 +1219,15 @@ def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
             # removed from sys.path after this file's own imports, so it's
             # restored here just for this one.
             #
-            # PBS jobs don't inherit the venv; fall back to the interpreter
-            # cached by generate_physics_suites to locate xdsl_ccpp's paths.
+            # PBS jobs don't inherit the venv; ask the xdsl_ccpp interpreter
+            # (see _resolve_xdsl_python) for xdsl_ccpp's paths.
             try:
                 import xdsl_ccpp as _xdsl_ccpp_probe  # noqa: F401
                 del _xdsl_ccpp_probe
             except ImportError:
-                _genccpp_dir = os.path.join(bldroot, "ccpp")
-                _xdsl_python_cache = os.path.join(_genccpp_dir, ".xdsl_ccpp_python")
-                _xdsl_python = os.environ.get("XDSL_CCPP_PYTHON", "")
-                if not _xdsl_python and os.path.isfile(_xdsl_python_cache):
-                    with open(_xdsl_python_cache) as _f:
-                        _xdsl_python = _f.read().strip()
-                if _xdsl_python and _xdsl_python != sys.executable:
+                _xdsl_python = _resolve_xdsl_python(
+                    os.path.join(bldroot, "ccpp"), xdsl_python)
+                if _xdsl_python != sys.executable:
                     import subprocess as _sp
                     # Use __path__[0] instead of __file__ because editable
                     # installs expose xdsl_ccpp as a namespace package with

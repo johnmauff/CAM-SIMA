@@ -79,6 +79,9 @@ class FakeCase:
             "CCPP_GENERATOR": "capgen",
             "CCPP_PACKAGE_CAPS": False,
             "CCPP_SUITE_DIR": "",
+            "XDSL_CCPP_PYTHON": "",
+            "XDSL_CCPP_CAPTURE_SCHEME": "",
+            "XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR": "",
             "GMAKE_J": 1
             }
 
