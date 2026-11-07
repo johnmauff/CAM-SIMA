@@ -7,4 +7,4 @@
 ./xmlchange OPENACC_GPU_OFFLOAD=TRUE
 ./xmlchange OVERSUBSCRIBE_GPU=TRUE
 ./xmlchange NGPUS_PER_NODE=4
-sed -i -e '/^ *ncdata_check[a-z_]* *=/d' -e '/^ *min_difference *=/d' user_nl_cam
+sed -i -e '/^ *ncdata_check[a-z_]* *=/{:a;/, *$/{N;ba};d}' -e '/^ *min_difference *=/d' user_nl_cam
