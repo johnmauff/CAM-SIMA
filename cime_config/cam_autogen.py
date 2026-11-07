@@ -21,6 +21,7 @@ import glob
 import re
 import subprocess
 import hashlib
+import shlex
 import xml.etree.ElementTree as _ET
 
 #pylint: disable=wrong-import-position
@@ -694,6 +695,108 @@ def _xdsl_capture_fingerprint(scheme_spec, driver_dir, case_name):
     return digest.hexdigest()[:12]
 
 ###############################################################################
+# Compile flags for the xdsl_ccpp capture replay build: the flags this build
+# compiled each Fortran source with, written to capture_compile_flags.txt in
+# the capture driver directory (format: xdsl_ccpp.tools.capture_cmake). A
+# replay matches the captured run bit for bit only when it compiles every
+# file the same way. The replay build sets these itself, so they are left
+# out: include and module directories, preprocessor definitions, the output
+# file and the accelerator flags (CPU or GPU replay).
+_CAPTURE_FLAGS_FILE = "capture_compile_flags.txt"
+_CAPTURE_FLAGS_RECORD = ".xdsl_ccpp_compile_flags"
+_FORTRAN_SUFFIXES = (".F90", ".f90", ".F", ".f")
+_DROP_FLAG_WITH_VALUE = frozenset({"-o", "-I", "-module", "-J", "-D", "-U"})
+_DROP_FLAG_PREFIXES = ("-I", "-J", "-D", "-U", "-acc=", "-gpu=")
+_DROP_FLAGS = frozenset({"-c", "-acc", "-noacc", "-mp=gpu"})
+
+###############################################################################
+def _compile_command_flags(line):
+###############################################################################
+    """
+    (source file name, flags) of a Fortran compile command in make's
+    output, or None when <line> is not one.
+    """
+    try:
+        tokens = shlex.split(line)
+    except ValueError:
+        return None
+    # end try
+    if "-c" not in tokens:
+        return None
+    # end if
+    sources = [tok for tok in tokens[1:]
+               if tok.endswith(_FORTRAN_SUFFIXES) and not tok.startswith("-")]
+    if len(sources) != 1:
+        return None
+    # end if
+    flags = []
+    skip_value = False
+    for tok in tokens[1:]:
+        if skip_value:
+            skip_value = False
+        elif tok in _DROP_FLAG_WITH_VALUE:
+            skip_value = True
+        elif not (tok == sources[0] or tok in _DROP_FLAGS
+                  or tok.startswith(_DROP_FLAG_PREFIXES)):
+            flags.append(tok)
+        # end if
+    # end for
+    return os.path.basename(sources[0]), flags
+
+###############################################################################
+def write_capture_compile_flags(make_output, genccpp_dir, driver_dir):
+###############################################################################
+    """
+    After a successful atm build with scheme I/O capture: record the flags
+    of the Fortran compile commands in <make_output> (merged into the
+    record in <genccpp_dir>, since an incremental build compiles only some
+    files) and write the record as <driver_dir>/capture_compile_flags.txt,
+    with the most common flags as the default ("*") line. Returns the path
+    written, or None when no compile flags are known.
+    """
+    record_path = os.path.join(genccpp_dir, _CAPTURE_FLAGS_RECORD)
+    record = {}
+    if os.path.isfile(record_path):
+        with open(record_path, encoding='utf-8') as rfile:
+            for line in rfile:
+                words = line.split()
+                if words and not words[0].startswith("#"):
+                    record[words[0]] = words[1:]
+                # end if
+            # end for
+        # end with
+    # end if
+    for line in make_output.splitlines():
+        parsed = _compile_command_flags(line)
+        if parsed is not None:
+            record[parsed[0]] = parsed[1]
+        # end if
+    # end for
+    record.pop("*", None)
+    if not record:
+        return None
+    # end if
+    counts = {}
+    for flags in record.values():
+        counts[tuple(flags)] = counts.get(tuple(flags), 0) + 1
+    # end for
+    default = max(counts, key=counts.get)
+    lines = ["# Written by CAM-SIMA's buildlib: the flags each Fortran source was",
+             "# compiled with in this case (* for the others), for the xdsl_ccpp",
+             "# capture replay build.",
+             " ".join(["*"] + list(default))]
+    lines += [" ".join([name] + record[name]) for name in sorted(record)]
+    text = "\n".join(lines) + "\n"
+    with open(record_path, "w", encoding='utf-8') as rfile:
+        rfile.write(text)
+    # end with
+    out_path = os.path.join(driver_dir, _CAPTURE_FLAGS_FILE)
+    with open(out_path, "w", encoding='utf-8') as ofile:
+        ofile.write(text)
+    # end with
+    return out_path
+
+###############################################################################
 def generate_physics_suites(build_cache, preproc_defs, host_name,
                             phys_suites_str, atm_root, bldroot,
                             reg_dir, reg_files, source_mods_dir,
@@ -1024,6 +1127,13 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                         os.makedirs(_xdsl_capture_driver_dir)
                     # end if
                     cmd += ["--capture-test-driver-dir", _xdsl_capture_driver_dir]
+                    # CESM share code (shr_kind_mod, shr_spfn_mod, ...), for
+                    # the modules the captured schemes use that are not in
+                    # the physics repository.
+                    _share_src = os.path.join(atm_root, "share", "src")
+                    if os.path.isdir(_share_src):
+                        cmd += ["--capture-source-root", _share_src]
+                    # end if
                 # end if
                 if case_name:
                     # Written into every capture file; with a driver

@@ -63,6 +63,7 @@ from cam_autogen import _find_suite_file, _find_schemes_in_py_suite
 from cam_autogen import _python_suite_inputs
 from cam_autogen import _xdsl_capture_settings, _xdsl_capture_fingerprint
 from cam_autogen import _resolve_xdsl_python
+from cam_autogen import _compile_command_flags, write_capture_compile_flags
 
 #Import necessary CCPP framework functions:
 from parse_tools import read_xml_file
@@ -1155,6 +1156,76 @@ class XdslPythonTest(unittest.TestCase):
             _resolve_xdsl_python(self.tmp_dir, missing)
         # end with
         self.assertIn(missing, str(cerr.exception))
+
+class CaptureCompileFlagsTest(unittest.TestCase):
+    """The compile flags written for the xdsl_ccpp capture replay build."""
+
+    _BASE = "-O -Mnofma -i4 -Mflushz -Knoieee -Mfree"
+    _GENERIC = "ftn -c -I. -I/bld/include -DSPMD {base} -noacc /src/{name}.F90"
+    _PUMAS = ("ftn -c -I. -DSPMD {base} -O3 -fastsse -Mnofma -MllvmO0 "
+              "-acc -gpu=cc80,nofma,math_uniform /src/pumas/{name}.F90")
+
+    def setUp(self):
+        self.tmp_dir = os.path.join(_CURRDIR, "tmp", "capture_flags")
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+        self.genccpp_dir = os.path.join(self.tmp_dir, "ccpp")
+        self.driver_dir = os.path.join(self.tmp_dir, "drivers")
+        os.makedirs(self.genccpp_dir)
+        os.makedirs(self.driver_dir)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def _output(self, names, template=None, extra=""):
+        template = template or self._GENERIC
+        return "\n".join(template.format(base=self._BASE + extra, name=name)
+                         for name in names)
+
+    def _written(self):
+        with open(os.path.join(self.driver_dir, "capture_compile_flags.txt")) as ffile:
+            lines = [line.split() for line in ffile if not line.startswith("#")]
+        # end with
+        return {words[0]: words[1:] for words in lines}
+
+    def test_compile_command_keeps_only_the_numerics_flags(self):
+        """Includes, definitions, output and accelerator flags are dropped."""
+        name, flags = _compile_command_flags(
+            self._PUMAS.format(base=self._BASE, name="micro_pumas_utils"))
+        self.assertEqual(name, "micro_pumas_utils.F90")
+        self.assertEqual(flags, self._BASE.split() + ["-O3", "-fastsse", "-Mnofma", "-MllvmO0"])
+        self.assertEqual(_compile_command_flags("mpif90 -c -o x.o -I /inc -J mods -D A -O0 x.f90"),
+                         ("x.f90", ["-O0"]))
+        for line in ("ar ru libatm.a a.o", "cc -c -O2 x.c", "ftn -o cesm.exe a.o",
+                     'echo "unbalanced'):
+            self.assertIsNone(_compile_command_flags(line))
+        # end for
+
+    def test_flags_file_with_the_most_common_flags_as_default(self):
+        """Each source gets its own line; '*' is the most common flags."""
+        output = "\n".join([self._output(["a", "b", "c"]),
+                            self._output(["micro_pumas_utils"], self._PUMAS),
+                            "ar ru libatm.a a.o"])
+        path = write_capture_compile_flags(output, self.genccpp_dir, self.driver_dir)
+        self.assertEqual(path, os.path.join(self.driver_dir, "capture_compile_flags.txt"))
+        written = self._written()
+        self.assertEqual(written["*"], self._BASE.split())
+        self.assertEqual(written["a.F90"], self._BASE.split())
+        self.assertIn("-fastsse", written["micro_pumas_utils.F90"])
+
+    def test_incremental_build_keeps_the_earlier_files(self):
+        """A rebuild compiling one file updates it and keeps the rest."""
+        write_capture_compile_flags(self._output(["a", "b"]), self.genccpp_dir, self.driver_dir)
+        write_capture_compile_flags(self._output(["b"], extra=" -g"),
+                                    self.genccpp_dir, self.driver_dir)
+        written = self._written()
+        self.assertEqual(written["a.F90"], self._BASE.split())
+        self.assertEqual(written["b.F90"][-1], "-g")
+
+    def test_nothing_written_without_compile_commands(self):
+        """No known flags: no file."""
+        self.assertIsNone(write_capture_compile_flags("make: nothing to be done",
+                                                      self.genccpp_dir, self.driver_dir))
+        self.assertFalse(os.listdir(self.driver_dir))
 
 #################################################
 #Run unit tests if this script is called directly

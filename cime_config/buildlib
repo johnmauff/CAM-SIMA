@@ -214,6 +214,13 @@ def _build_cam():
         _LOGGER.info("Command %s:\n\nstdout:\n%s\n\nstderr:\n%s\n", cmd, out, err)
         expect(retcode == 0, f"Command {cmd} failed with rc={retcode}")
 
+        # xdsl_ccpp scheme I/O capture: the flags each source was compiled
+        # with, for the capture replay build (no-op without a capture).
+        flags_file = config.write_capture_compile_flags(out)
+        if flags_file:
+            _LOGGER.info("Wrote capture compile flags: %s", flags_file)
+        # end if
+
 ###############################################################################
 def _prepare_mpas(case: Case) -> None:
 ###############################################################################

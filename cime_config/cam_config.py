@@ -32,6 +32,7 @@ from cam_build_cache import BuildCacheCAM # Re-build consistency cache
 # Import fortran auto-generation routines:
 from cam_autogen import generate_registry, generate_physics_suites
 from cam_autogen import generate_init_routines
+from cam_autogen import _xdsl_capture_settings, write_capture_compile_flags
 
 ###############################################################################
 #HELPER FUNCTIONS
@@ -958,6 +959,27 @@ class ConfigCAM:
 
         #Return the set of all scheme names present in the SDFs:
         return scheme_names
+
+    #++++++++++++++++++++++++
+
+    def write_capture_compile_flags(self, make_output):
+        """
+        With xdsl_ccpp scheme I/O capture and a test driver directory:
+        write the compile flags of this build (<make_output>, the atm
+        build's make output) to the driver directory, for the replay
+        build (cam_autogen.write_capture_compile_flags). Returns the path
+        written, or None.
+        """
+        if self.__ccpp_generator != "xdsl_ccpp":
+            return None
+        # end if
+        genccpp_dir = os.path.join(self.__bldroot, "ccpp")
+        scheme_spec, driver_dir = _xdsl_capture_settings(
+            genccpp_dir, self.__capture_case_values)
+        if not (scheme_spec and driver_dir and os.path.isdir(driver_dir)):
+            return None
+        # end if
+        return write_capture_compile_flags(make_output, genccpp_dir, driver_dir)
 
     #++++++++++++++++++++++++
 
