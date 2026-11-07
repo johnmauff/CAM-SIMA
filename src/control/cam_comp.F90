@@ -329,8 +329,10 @@ contains
       calday = get_curr_calday()
 
       ! Update the orbital data
+      call t_startf('orbital_data_advance')
       call orbital_data_advance(calday, lat_rad, lon_rad, use_rad_uniform_angle, &
                                 rad_uniform_angle, dt_avg)
+      call t_stopf('orbital_data_advance')
 
       ! Update timestep flags in physics state
       is_first_timestep = is_first_step()
@@ -367,7 +369,9 @@ contains
       ! PHYS_TIMESTEP_INIT Call the Physics package
       !----------------------------------------------------------
       !
+      call t_startf('phys_timestep_init')
       call phys_timestep_init()
+      call t_stopf('phys_timestep_init')
 
       ! Call share code to get relevant calendar days
       nextsw_cday = get_curr_calday(offset=radiation_offset)
@@ -547,6 +551,7 @@ contains
 
       logical :: history_write_loc
 
+      call t_startf('cam_timestep_final')
       if (present(do_history_write)) then
          history_write_loc = do_history_write
       else
@@ -554,18 +559,25 @@ contains
       end if
 
       if (history_write_loc) then
+         call t_startf('history_write_files')
          call history_write_files()
+         call t_stopf('history_write_files')
       end if
       ! peverwhee - todo: handle restarts
+      call t_startf('history_wrap_up')
       call history_wrap_up(rstwr, nlend)
+      call t_stopf('history_wrap_up')
 
       !
       !----------------------------------------------------------
       ! PHYS_TIMESTEP_FINAL Call the Physics package
       !----------------------------------------------------------
       !
+      call t_startf('phys_timestep_final')
       call phys_timestep_final(do_ncdata_check)
+      call t_stopf('phys_timestep_final')
       call shr_sys_flush(iulog)
+      call t_stopf('cam_timestep_final')
 
    end subroutine cam_timestep_final
 
