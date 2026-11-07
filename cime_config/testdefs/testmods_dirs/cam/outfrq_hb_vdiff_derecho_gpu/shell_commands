@@ -7,4 +7,6 @@
 ./xmlchange OPENACC_GPU_OFFLOAD=TRUE
 ./xmlchange OVERSUBSCRIBE_GPU=TRUE
 ./xmlchange NGPUS_PER_NODE=4
+# One Derecho GPU node, 6 MPI ranks per GPU (4 x 6 = 24), as for every GPU test.
+./xmlchange NTASKS=24,NTHRDS=1,ROOTPE=0
 sed -i -e '/^ *ncdata_check[a-z_]* *=/{:a;/, *$/{N;ba};d}' -e '/^ *min_difference *=/d' user_nl_cam

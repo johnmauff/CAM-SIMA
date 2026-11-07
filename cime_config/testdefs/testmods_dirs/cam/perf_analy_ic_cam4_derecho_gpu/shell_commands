@@ -1,8 +1,7 @@
 # GPU counterpart of perf_analy_ic_cam4_derecho: one Derecho GPU node
-# (64 cores, 4 A100s), 64 MPI ranks = 16 per GPU. CIME derives one node
-# from MAX_CPUTASKS_PER_GPU_NODE=64.
+# (64 cores, 4 A100s), 24 MPI ranks = 6 per GPU, as for every GPU test.
 ./xmlchange GPU_TYPE=a100
 ./xmlchange OPENACC_GPU_OFFLOAD=TRUE
 ./xmlchange OVERSUBSCRIBE_GPU=TRUE
 ./xmlchange NGPUS_PER_NODE=4
-./xmlchange NTASKS=64,NTHRDS=1,ROOTPE=0
+./xmlchange NTASKS=24,NTHRDS=1,ROOTPE=0
