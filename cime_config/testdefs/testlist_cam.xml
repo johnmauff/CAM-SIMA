@@ -686,7 +686,8 @@
       <machine name="derecho" compiler="nvhpc" category="sima_perf"/>
     </machines>
     <options>
-      <option name="wallclock">01:00:00</option>
+      <!-- 2 h: MPAS cam4 on one GPU node ran ~80 s/step (xdsl66gpu, 2026-11-07) -->
+      <option name="wallclock">02:00:00</option>
       <option name="comment">CAM4 aquaplanet performance, MPAS 120 km, one GPU node (24 ranks, 6 per A100)</option>
     </options>
   </test>
