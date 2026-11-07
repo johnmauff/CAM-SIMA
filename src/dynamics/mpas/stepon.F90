@@ -33,8 +33,10 @@ contains
         ! Module(s) from CAM-SIMA.
         use dyn_comp, only: dyn_export_t, dyn_import_t
         use dyn_coupling, only: dynamics_to_physics_coupling
+        use perf_mod, only: t_barrierf, t_startf, t_stopf
         use physics_types, only: physics_state, physics_tend
         use runtime_obj, only: runtime_options
+        use spmd_utils, only: mpicom
         use time_manager, only: get_step_size
         ! Module(s) from CCPP.
         use ccpp_kinds, only: kind_phys
@@ -49,7 +51,11 @@ contains
         ! Set timestep for physics.
         dtime_phys = real(get_step_size(), kind_phys)
 
+        ! Timers named as in the SE dynamical core, for direct comparison.
+        call t_barrierf('sync_d_p_coupling', mpicom)
+        call t_startf('d_p_coupling')
         call dynamics_to_physics_coupling()
+        call t_stopf('d_p_coupling')
     end subroutine stepon_timestep_init
 
     ! Called by `cam_run2` in `src/control/cam_comp.F90`.
@@ -57,8 +63,10 @@ contains
         ! Module(s) from CAM-SIMA.
         use dyn_comp, only: dyn_export_t, dyn_import_t
         use dyn_coupling, only: physics_to_dynamics_coupling
+        use perf_mod, only: t_barrierf, t_startf, t_stopf
         use physics_types, only: physics_state, physics_tend
         use runtime_obj, only: runtime_options
+        use spmd_utils, only: mpicom
 
         type(runtime_options), intent(in) :: cam_runtime_opts
         type(physics_state), intent(in) :: phys_state
@@ -66,7 +74,11 @@ contains
         type(dyn_import_t), intent(in) :: dyn_in
         type(dyn_export_t), intent(in) :: dyn_out
 
+        ! Timers named as in the SE dynamical core, for direct comparison.
+        call t_barrierf('sync_p_d_coupling', mpicom)
+        call t_startf('p_d_coupling')
         call physics_to_dynamics_coupling()
+        call t_stopf('p_d_coupling')
     end subroutine stepon_run2
 
     ! Called by `cam_run3` in `src/control/cam_comp.F90`.
