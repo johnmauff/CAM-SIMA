@@ -80,6 +80,7 @@ class FakeCase:
             "CCPP_PACKAGE_CAPS": False,
             "CCPP_SUITE_DIR": "",
             "XDSL_CCPP_PYTHON": "",
+            "RRTMGP_KERNELS": "auto",
             "XDSL_CCPP_CAPTURE_SCHEME": "",
             "XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR": "",
             "GMAKE_J": 1

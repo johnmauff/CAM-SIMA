@@ -191,6 +191,10 @@ class ConfigCAM:
         self.__bldroot  = os.path.join(exeroot, "atm", "obj")
         self.__atm_name = case.get_value("COMP_ATM")
         self.__gpu_flag = case.get_value("OPENACC_GPU_OFFLOAD") #Returns a Boolean
+        # rte-rrtmgp kernels: "auto" (CPU kernels on CPU, GPU kernels on GPU)
+        # or "accel" (GPU kernels everywhere, for CPU/GPU verification).
+        # None in a case created before RRTMGP_KERNELS existed.
+        self.__rrtmgp_kernels = case.get_value("RRTMGP_KERNELS") or "auto"
         # CCPP cap-generation backend: 'capgen' (default) or 'xdsl_ccpp'.
         self.__ccpp_generator = case.get_value("CCPP_GENERATOR")
         # xdsl_ccpp only: one Fortran module per package of a Python suite.
@@ -924,7 +928,8 @@ class ConfigCAM:
                                           jobs=self.__gmake_j,
                                           case_name=self.__case_name,
                                           xdsl_python=self.__xdsl_python,
-                                          capture_case_values=self.__capture_case_values)
+                                          capture_case_values=self.__capture_case_values,
+                                          rrtmgp_kernels=self.__rrtmgp_kernels)
         phys_dirs, force_init, _, nml_fils, resolved_vars_source, scheme_names = retvals
 
         # Add namelist definition files to dictionary:

@@ -75,6 +75,15 @@
     <desc>CCPP cap-generation backend: capgen (default) or xdsl_ccpp</desc>
   </entry>
 
+  <entry id="RRTMGP_KERNELS">
+    <type>char</type>
+    <valid_values>auto,accel</valid_values>
+    <default_value>auto</default_value>
+    <group>build_component_cam</group>
+    <file>env_build.xml</file>
+    <desc>Which rte-rrtmgp kernel implementation the build uses. auto (default): the CPU kernels (rte-kernels/, rrtmgp-kernels/) in a CPU build and the GPU kernels (their accel/ subdirectories) in a GPU build -- the fastest on each architecture, for production and performance runs. accel: the accel/ kernels in a CPU build too (compiled without OpenACC), so CPU and GPU builds run the same RRTMGP algorithm and can be compared bit for bit -- for CPU/GPU verification only. Takes effect when the physics caps are generated (a new case, or after removing bld/atm/obj/cam_build_cache.xml).</desc>
+  </entry>
+
   <entry id="XDSL_CCPP_PYTHON">
     <type>char</type>
     <valid_values></valid_values>

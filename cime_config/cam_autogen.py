@@ -506,7 +506,7 @@ def _update_genccpp_dir(utility_files, genccpp_dir):
     # end for
 
 ###############################################################################
-def _set_rrtmgp_dependencies(dependency_files, gpu_flag):
+def _set_rrtmgp_dependencies(dependency_files, gpu_flag, rrtmgp_kernels="auto"):
 ###############################################################################
     """
     Modify the list of files that physics schemes depend on
@@ -515,6 +515,11 @@ def _set_rrtmgp_dependencies(dependency_files, gpu_flag):
 
     This function returns a modified list with either the
     CPU or GPU RRTMGP dependencies, but not both.
+
+    <rrtmgp_kernels> (case variable RRTMGP_KERNELS): "auto" picks the GPU
+    ("accel") kernels for a GPU build and the CPU kernels otherwise; "accel"
+    picks the GPU kernels for a CPU build too, so CPU and GPU builds run the
+    same algorithm (CPU/GPU bit-for-bit verification).
 
     >>> in_files = ['/some/path/file.F90','/some/rte-kernels/rrtmgp.F90', \
                     '/some/rte-kernels/accel/rrtmgp.F90', \
@@ -529,6 +534,12 @@ def _set_rrtmgp_dependencies(dependency_files, gpu_flag):
 '/some/other/path/file.F90', '/other/rrtmgp-kernels/mo_gas_optics_rrtmgp_kernels.F90']
 
     >>> _set_rrtmgp_dependencies(in_files, True)
+    ['/some/path/file.F90', '/some/rte-kernels/rrtmgp.F90', \
+'/some/rte-kernels/accel/rrtmgp.F90', \
+'/some/rte-kernels/accel/mo_rte_solver_kernels.F90', '/some/other/path/file.F90', \
+'/other/rrtmgp-kernels/accel/mo_gas_optics_rrtmgp_kernels.F90']
+
+    >>> _set_rrtmgp_dependencies(in_files, False, "accel")
     ['/some/path/file.F90', '/some/rte-kernels/rrtmgp.F90', \
 '/some/rte-kernels/accel/rrtmgp.F90', \
 '/some/rte-kernels/accel/mo_rte_solver_kernels.F90', '/some/other/path/file.F90', \
@@ -548,14 +559,18 @@ def _set_rrtmgp_dependencies(dependency_files, gpu_flag):
                     'mo_gas_optics_rrtmgp_kernels.F90']
 
 
+    # The GPU ("accel") kernels for a GPU build, or for any build when
+    # RRTMGP_KERNELS=accel (same algorithm on CPU and GPU):
+    use_accel = gpu_flag or rrtmgp_kernels == "accel"
+
     for file_path in dependency_files:
         if any(subdir in file_path for subdir in rrtmgp_subdirs):
             if any(rfile in file_path for rfile in rrtmgp_files):
-                if (gpu_flag and 'accel' in file_path):
-                    #If GPU-enabled and is "accelerated", include it:
+                if (use_accel and 'accel' in file_path):
+                    #If GPU kernels are wanted and is "accelerated", include it:
                     new_dependency_files.append(file_path)
-                elif (not gpu_flag and 'accel' not in file_path):
-                    #If CPU-only and not "accelerated", include it:
+                elif (not use_accel and 'accel' not in file_path):
+                    #If CPU kernels are wanted and not "accelerated", include it:
                     new_dependency_files.append(file_path)
             else:
                 #Not a hardware-dependent file, so include it:
@@ -803,7 +818,7 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                             gpu_flag, force, ccpp_generator="capgen",
                             package_caps=False, suite_dir="", jobs=1,
                             case_name="", xdsl_python="",
-                            capture_case_values=None):
+                            capture_case_values=None, rrtmgp_kernels="auto"):
 ###############################################################################
     """
     Generate the source for the configured physics suites,
@@ -1265,7 +1280,8 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             # CPU or GPU RRTMGP dependencies:
             if any("rrtmgp_" in scheme_name for scheme_name in scheme_names):
                 dependency_files = _set_rrtmgp_dependencies(dependency_files,
-                                                            gpu_flag)
+                                                            gpu_flag,
+                                                            rrtmgp_kernels)
 
             # Copy dependencies files into CCPP build directory
             _update_genccpp_dir(dependency_files, genccpp_dir)
