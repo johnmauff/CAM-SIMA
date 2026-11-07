@@ -672,7 +672,7 @@
   <!-- Performance tests (category sima_perf, not part of aux_sima): CAM4
        aquaplanet at ~45,000 columns, 4 CPU nodes (512 ranks) vs one GPU node
        (24 ranks, 6 per A100); compare ESMF_Profile.summary timers. -->
-  <test compset="QPC4" grid="mpasa120_mpasa120" name="SMS_Ln50" testmods="cam/perf_analy_ic_cam4_derecho">
+  <test compset="QPC4" grid="mpasa120_mpasa120" name="SMS_Ld1" testmods="cam/perf_analy_ic_cam4_derecho">
     <machines>
       <machine name="derecho" compiler="nvhpc" category="sima_perf"/>
     </machines>
@@ -681,17 +681,16 @@
       <option name="comment">CAM4 aquaplanet performance, MPAS 120 km, 512 CPU ranks (4 nodes)</option>
     </options>
   </test>
-  <test compset="QPC4" grid="mpasa120_mpasa120" name="SMS_Ln50" testmods="cam/perf_analy_ic_cam4_derecho_gpu">
+  <test compset="QPC4" grid="mpasa120_mpasa120" name="SMS_Ld1" testmods="cam/perf_analy_ic_cam4_derecho_gpu">
     <machines>
       <machine name="derecho" compiler="nvhpc" category="sima_perf"/>
     </machines>
     <options>
-      <!-- 2 h: MPAS cam4 on one GPU node ran ~80 s/step (xdsl66gpu, 2026-11-07) -->
-      <option name="wallclock">02:00:00</option>
+      <option name="wallclock">01:00:00</option>
       <option name="comment">CAM4 aquaplanet performance, MPAS 120 km, one GPU node (24 ranks, 6 per A100)</option>
     </options>
   </test>
-  <test compset="QPC4" grid="ne30pg3_ne30pg3_mg17" name="SMS_Ln50" testmods="cam/perf_se_cam4_derecho">
+  <test compset="QPC4" grid="ne30pg3_ne30pg3_mg17" name="SMS_Ld1" testmods="cam/perf_se_cam4_derecho">
     <machines>
       <machine name="derecho" compiler="nvhpc" category="sima_perf"/>
     </machines>
@@ -700,7 +699,7 @@
       <option name="comment">CAM4 aquaplanet performance, SE ne30pg3, 512 CPU ranks (4 nodes)</option>
     </options>
   </test>
-  <test compset="QPC4" grid="ne30pg3_ne30pg3_mg17" name="SMS_Ln50" testmods="cam/perf_se_cam4_derecho_gpu">
+  <test compset="QPC4" grid="ne30pg3_ne30pg3_mg17" name="SMS_Ld1" testmods="cam/perf_se_cam4_derecho_gpu">
     <machines>
       <machine name="derecho" compiler="nvhpc" category="sima_perf"/>
     </machines>
