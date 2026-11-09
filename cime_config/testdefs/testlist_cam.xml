@@ -107,6 +107,16 @@
       <option name="comment">GPU version, compared with its nvhpc CPU test: Test for Zhang McFarlane deep convection scheme</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_mcsp_derecho">
+    <machines>
+      <!-- the MCSP test is ZM+MCSP, so it also provides Intel coverage for ZM. -->
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">Snapshot test for Zhang McFarlane deep convection followed by MCSP</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_hack_shallow_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
@@ -706,6 +716,21 @@
     <options>
       <option name="wallclock">01:00:00</option>
       <option name="comment">CAM4 aquaplanet performance, SE ne30pg3, one GPU node (24 ranks, 6 per A100)</option>
+    </options>
+  </test>
+
+  <test compset="FHIST_C4" grid="ne3pg3_ne3pg3_mt233" name="SMS_D_Ln9" testmods="cam/outfrq_se_cam4">
+    <machines>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="gnu" category="aux_sima"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:30:00</option>
+      <option name="comment">
+        CAM4 AMIP-style test with SE-CSLAM dycore at ne3 (ultra-low) resolution with transient historical
+        forcings (time-varying GHG, ozone, aerosol, volcanic, and solar datasets; time-varying SSTs)
+        in debug mode
+      </option>
     </options>
   </test>
 
