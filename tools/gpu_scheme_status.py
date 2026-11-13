@@ -10,7 +10,8 @@ column per configuration:
   🧪  (after the mark, with --capture-root) a unit test is available: a
       capture replay driver was built for the scheme
       (<capture root>/capture_*/build*/test_<scheme>, from
-      xdsl_ccpp --capture-scheme and build_capture_tests.sh)
+      xdsl_ccpp --capture-scheme and build_capture_tests.sh) whose run phase
+      was not left out (test_<scheme>.skipped)
 
 A scheme is ✅ when all of these hold:
   * its own <scheme>_<phase> routines carry OpenACC directives (any !$acc
@@ -181,6 +182,19 @@ def scheme_sources(names):
     return info
 
 
+def _run_phase_left_out(capture_dir, scheme):
+    """True when the generator left the scheme's run phase out of its
+    replay driver: test_<scheme>.skipped lists "<scheme>_run: ..." (e.g.
+    rrtmgp_pre_run, whose RRTMGP flux-object arguments the capture cannot
+    record). Such a driver replays only the other phases, so it does not
+    count as a unit test of the scheme."""
+    path = os.path.join(capture_dir, f"test_{scheme}.skipped")
+    if not os.path.isfile(path):
+        return False
+    with open(path) as skipped:
+        return any(line.startswith(f"{scheme}_run:") for line in skipped)
+
+
 def unit_tested(capture_root):
     """Schemes with a built capture replay test: an executable
     capture_*/build*/test_<scheme> under capture_root."""
@@ -188,8 +202,11 @@ def unit_tested(capture_root):
         return set()
     found = set()
     for path in glob.glob(os.path.join(capture_root, "capture_*", "build*", "test_*")):
-        if os.path.isfile(path) and os.access(path, os.X_OK):
-            found.add(os.path.basename(path)[len("test_"):])
+        if not (os.path.isfile(path) and os.access(path, os.X_OK)):
+            continue
+        scheme = os.path.basename(path)[len("test_"):]
+        if not _run_phase_left_out(os.path.dirname(os.path.dirname(path)), scheme):
+            found.add(scheme)
     if not found:
         print(f"warning: no capture replay tests under {capture_root}", file=sys.stderr)
     return found

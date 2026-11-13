@@ -10,7 +10,7 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - 🧪 a unit test is available (a built capture replay of the scheme)
 
 Generated 2026-11-12 by `tools/gpu_scheme_status.py`
-(CAM-SIMA `e82762b`, atmospheric_physics `7663967`) from GPU
+(CAM-SIMA `6b4cac1`, atmospheric_physics `7663967`) from GPU
 tests that passed bit-for-bit against their CPU baselines: xdsl82gpu; also verified elsewhere: `pumas_post_main`
 (33 cases). A scheme is ✅ when its own routines carry OpenACC
 directives (or, for `micro_pumas_ccpp`, the package it calls runs on the GPU), its
@@ -115,7 +115,7 @@ come from the cam4 and FPHYStest runs.
 | `rrtmgp_lw_mcica_subcol_gen` | ❌ | ❌ | ❌ |
 | `rrtmgp_lw_rte` | ✅ | ✅ | ✅ |
 | `rrtmgp_post` | ❌ | ❌ | ❌ |
-| `rrtmgp_pre` | ❌ 🧪 | ❌ 🧪 | ❌ 🧪 |
+| `rrtmgp_pre` | ❌ | ❌ | ❌ |
 | `rrtmgp_subcycle` | ❌ 🧪 | ❌ 🧪 | ❌ 🧪 |
 | `rrtmgp_sw_aerosols` | ❌ | ❌ | ❌ |
 | `rrtmgp_sw_calculate_fluxes` | ❌ | ❌ | ❌ |
