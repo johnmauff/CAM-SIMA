@@ -9,9 +9,9 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - blank: the scheme is not in that configuration's suite
 - 🧪 a unit test is available (a built capture replay of the scheme)
 
-Generated 2026-11-12 by `tools/gpu_scheme_status.py`
-(CAM-SIMA `6b4cac1`, atmospheric_physics `7663967`) from GPU
-tests that passed bit-for-bit against their CPU baselines: xdsl82gpu; also verified elsewhere: `pumas_post_main`
+Generated 2026-11-13 by `tools/gpu_scheme_status.py`
+(CAM-SIMA `e09d2ff`, atmospheric_physics `7663967`) from GPU
+tests that passed bit-for-bit against their CPU baselines: xdsl84gpu
 (33 cases). A scheme is ✅ when its own routines carry OpenACC
 directives (or, for `micro_pumas_ccpp`, the package it calls runs on the GPU), its
 object is compiled with OpenACC (`ccs_config/machines/Depends.nvhpc`), and it
