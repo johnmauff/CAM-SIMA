@@ -7,6 +7,10 @@ column per configuration:
   ✅  GPU-enabled and verified bit-for-bit on the GPU
   ❌  CPU only
   (blank) the scheme is not in that configuration's suite
+  🧪  (after the mark, with --capture-root) a unit test is available: a
+      capture replay driver was built for the scheme
+      (<capture root>/capture_*/build*/test_<scheme>, from
+      xdsl_ccpp --capture-scheme and build_capture_tests.sh)
 
 A scheme is ✅ when all of these hold:
   * its own <scheme>_<phase> routines carry OpenACC directives (any !$acc
@@ -37,7 +41,8 @@ phases; history-diagnostics schemes (name containing
 
 Example (the GPU regression on Derecho):
   tools/gpu_scheme_status.py \\
-    --test-root /glade/derecho/scratch/$USER/fphys_xdsl_test --test-id xdsl84gpu
+    --test-root /glade/derecho/scratch/$USER/fphys_xdsl_test --test-id xdsl84gpu \\
+    --capture-root /glade/derecho/scratch/$USER
 
 Reads files only; it builds and runs nothing.
 """
@@ -55,7 +60,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PHYSICS = os.path.join(REPO, "src", "physics", "ncar_ccpp")
 DEPENDS = os.path.join(REPO, "ccs_config", "machines", "Depends.nvhpc")
 CONFIGS = ("cam4", "cam5", "cam7")
-OK, NO = "✅", "❌"
+OK, NO, TEST = "✅", "❌", "🧪"
 PHASES = ("register", "init", "timestep_init", "run", "timestep_final", "final")
 ONE_TIME = {"register", "init", "final"}
 
@@ -176,6 +181,20 @@ def scheme_sources(names):
     return info
 
 
+def unit_tested(capture_root):
+    """Schemes with a built capture replay test: an executable
+    capture_*/build*/test_<scheme> under capture_root."""
+    if capture_root is None:
+        return set()
+    found = set()
+    for path in glob.glob(os.path.join(capture_root, "capture_*", "build*", "test_*")):
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            found.add(os.path.basename(path)[len("test_"):])
+    if not found:
+        print(f"warning: no capture replay tests under {capture_root}", file=sys.stderr)
+    return found
+
+
 def git_head(path):
     try:
         return subprocess.run(["git", "-C", path, "rev-parse", "--short", "HEAD"],
@@ -197,6 +216,9 @@ def main():
     parser.add_argument("--callee-gpu", action="append", default=None,
                         help="scheme whose GPU work is all in a package it calls "
                              "(repeatable; default: micro_pumas_ccpp)")
+    parser.add_argument("--capture-root",
+                        help="directory holding the capture_* replay directories; "
+                             f"marks schemes with a built unit test {TEST}")
     parser.add_argument("-o", "--output", default=os.path.join(REPO, "GPU_SCHEME_STATUS.md"),
                         help="output file (default: %(default)s)")
     args = parser.parse_args()
@@ -220,6 +242,7 @@ def main():
     names = sorted({n for schemes in suites.values() for n in schemes}, key=str.lower)
     info = scheme_sources(names)
     gpu_objs = gpu_objects()
+    tested_units = unit_tested(args.capture_root)
 
     sections = {"physics": [], "one_time": [], "diagnostics": []}
     counts = {sec: {c: [0, 0] for c in CONFIGS} for sec in sections}
@@ -237,7 +260,7 @@ def main():
         cells = []
         for config in CONFIGS:
             if name in suites[config]:
-                cells.append(OK if ok else NO)
+                cells.append((OK if ok else NO) + (f" {TEST}" if name in tested_units else ""))
                 counts[section][config][0 if ok else 1] += 1
             else:
                 cells.append("")
@@ -273,7 +296,7 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - {OK} GPU-enabled and verified bit-for-bit on the GPU
 - {NO} CPU only
 - blank: the scheme is not in that configuration's suite
-
+{f"- {TEST} a unit test is available (a built capture replay of the scheme)" + chr(10) if tested_units else ""}
 Generated {datetime.date.today().isoformat()} by `tools/gpu_scheme_status.py`
 (CAM-SIMA `{git_head(REPO)}`, atmospheric_physics `{git_head(PHYSICS)}`) from GPU
 tests that passed bit-for-bit against their CPU baselines: {evidence}

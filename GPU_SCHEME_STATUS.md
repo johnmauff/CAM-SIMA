@@ -7,9 +7,10 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - ✅ GPU-enabled and verified bit-for-bit on the GPU
 - ❌ CPU only
 - blank: the scheme is not in that configuration's suite
+- 🧪 a unit test is available (a built capture replay of the scheme)
 
 Generated 2026-11-12 by `tools/gpu_scheme_status.py`
-(CAM-SIMA `a869058`, atmospheric_physics `7663967`) from GPU
+(CAM-SIMA `e82762b`, atmospheric_physics `7663967`) from GPU
 tests that passed bit-for-bit against their CPU baselines: xdsl82gpu; also verified elsewhere: `pumas_post_main`
 (33 cases). A scheme is ✅ when its own routines carry OpenACC
 directives (or, for `micro_pumas_ccpp`, the package it calls runs on the GPU), its
@@ -22,44 +23,44 @@ come from the cam4 and FPHYStest runs.
 |---|:---:|:---:|:---:|
 | **Physics schemes** (✅ / schemes) | **49/108** | **47/97** | **41/88** |
 | `aerosol_optics` | ❌ |  | ❌ |
-| `apply_constituent_tendencies` | ✅ | ✅ | ✅ |
-| `apply_heating_rate` | ✅ | ✅ | ✅ |
-| `apply_tendency_of_air_temperature` | ✅ | ✅ | ✅ |
-| `apply_tendency_of_eastward_wind` | ✅ | ✅ | ✅ |
-| `apply_tendency_of_northward_wind` | ✅ | ✅ | ✅ |
+| `apply_constituent_tendencies` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `apply_heating_rate` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `apply_tendency_of_air_temperature` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `apply_tendency_of_eastward_wind` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `apply_tendency_of_northward_wind` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
 | `beljaars_add_wind_damping_rate` |  | ❌ |  |
-| `beljaars_drag` |  | ✅ | ✅ |
-| `bretherton_park_diff` |  | ❌ |  |
-| `calc_dry_air_ideal_gas_density` | ✅ | ✅ |  |
-| `calculate_net_heating` | ✅ | ✅ | ✅ |
+| `beljaars_drag` |  | ✅ 🧪 | ✅ 🧪 |
+| `bretherton_park_diff` |  | ❌ 🧪 |  |
+| `calc_dry_air_ideal_gas_density` | ✅ 🧪 | ✅ 🧪 |  |
+| `calculate_net_heating` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
 | `check_energy_chng` | ❌ | ❌ | ❌ |
-| `check_energy_fix` | ✅ | ✅ | ✅ |
+| `check_energy_fix` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
 | `check_energy_gmean` | ❌ | ❌ | ❌ |
-| `check_energy_save_teout` | ✅ | ✅ | ✅ |
-| `check_energy_scaling` | ✅ | ✅ | ✅ |
-| `check_energy_zero_fluxes` | ✅ | ✅ | ✅ |
-| `clamp_number_concentrations` | ✅ | ✅ | ✅ |
+| `check_energy_save_teout` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `check_energy_scaling` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `check_energy_zero_fluxes` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `clamp_number_concentrations` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
 | `cloud_condensate_floor` | ❌ | ❌ | ❌ |
-| `cloud_fraction_fice` | ✅ | ✅ | ✅ |
+| `cloud_fraction_fice` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
 | `cloud_particle_sedimentation` | ❌ |  |  |
-| `cloud_water_paths` | ❌ | ❌ | ❌ |
-| `compute_cloud_fraction` | ✅ | ✅ |  |
+| `cloud_water_paths` | ❌ 🧪 | ❌ 🧪 | ❌ 🧪 |
+| `compute_cloud_fraction` | ✅ 🧪 | ✅ 🧪 |  |
 | `compute_cloud_fraction_two_moment` |  | ❌ | ❌ |
-| `compute_kinematic_fluxes_and_obklen` | ❌ | ❌ |  |
+| `compute_kinematic_fluxes_and_obklen` | ❌ 🧪 | ❌ 🧪 |  |
 | `compute_relative_humidity` |  |  | ❌ |
-| `compute_subgrid_vertical_velocity_clubb` |  |  | ❌ |
+| `compute_subgrid_vertical_velocity_clubb` |  |  | ❌ 🧪 |
 | `compute_subgrid_vertical_velocity_tke` |  | ❌ |  |
 | `compute_total_precipitation_rate` |  |  | ❌ |
-| `convect_shallow_sum_to_deep` | ✅ |  |  |
-| `convective_cloud_cover` | ✅ |  |  |
-| `convective_cloud_water` | ❌ | ❌ | ❌ |
-| `convert_dry_constituent_tendencies_to_dry_air_basis` | ✅ | ✅ | ✅ |
-| `dadadj` | ✅ | ✅ | ✅ |
-| `dropmixnuc_apply_surface_fluxes` |  | ✅ |  |
-| `dust_default_radii` |  | ❌ | ❌ |
-| `dycore_energy_consistency_adjust` | ✅ | ✅ | ✅ |
-| `eddy_diffusivity_adjustment_above_pbl` |  | ✅ |  |
-| `geopotential_temp` | ✅ | ✅ | ✅ |
+| `convect_shallow_sum_to_deep` | ✅ 🧪 |  |  |
+| `convective_cloud_cover` | ✅ 🧪 |  |  |
+| `convective_cloud_water` | ❌ 🧪 | ❌ 🧪 | ❌ 🧪 |
+| `convert_dry_constituent_tendencies_to_dry_air_basis` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `dadadj` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `dropmixnuc_apply_surface_fluxes` |  | ✅ 🧪 |  |
+| `dust_default_radii` |  | ❌ 🧪 | ❌ 🧪 |
+| `dycore_energy_consistency_adjust` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `eddy_diffusivity_adjustment_above_pbl` |  | ✅ 🧪 |  |
+| `geopotential_temp` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
 | `gravity_wave_drag_common` | ❌ | ❌ | ❌ |
 | `gravity_wave_drag_convection_deep` |  |  | ❌ |
 | `gravity_wave_drag_frontogenesis` |  |  | ❌ |
@@ -67,17 +68,17 @@ come from the cam4 and FPHYStest runs.
 | `gravity_wave_drag_orographic` | ❌ | ❌ |  |
 | `gravity_wave_drag_prepare_profiles` | ❌ | ❌ | ❌ |
 | `gravity_wave_drag_ridge_beta` |  |  | ❌ |
-| `hack_convect_shallow` | ✅ |  |  |
-| `hb_diff_exchange_coefficients` | ✅ |  |  |
+| `hack_convect_shallow` | ✅ 🧪 |  |  |
+| `hb_diff_exchange_coefficients` | ✅ 🧪 |  |  |
 | `hb_diff_prepare_vertical_diffusion_inputs` | ❌ | ❌ |  |
-| `hb_pbl_dependent_coefficients` | ✅ |  |  |
-| `hb_pbl_independent_coefficients` | ✅ |  |  |
-| `implicit_surface_stress_add_drag_coefficient` | ❌ | ❌ |  |
+| `hb_pbl_dependent_coefficients` | ✅ 🧪 |  |  |
+| `hb_pbl_independent_coefficients` | ✅ 🧪 |  |  |
+| `implicit_surface_stress_add_drag_coefficient` | ❌ 🧪 | ❌ 🧪 |  |
 | `mcsp` |  |  | ❌ |
-| `micro_pumas_ccpp` ¹ |  | ✅ | ✅ |
-| `micro_pumas_ccpp_dimensions_post` |  | ✅ | ✅ |
-| `micro_pumas_ccpp_dimensions_pre` |  | ✅ | ✅ |
-| `micro_pumas_ccpp_optics_limiter` |  | ✅ | ✅ |
+| `micro_pumas_ccpp` ¹ |  | ✅ 🧪 | ✅ 🧪 |
+| `micro_pumas_ccpp_dimensions_post` |  | ✅ 🧪 | ✅ 🧪 |
+| `micro_pumas_ccpp_dimensions_pre` |  | ✅ 🧪 | ✅ 🧪 |
+| `micro_pumas_ccpp_optics_limiter` |  | ✅ 🧪 | ✅ 🧪 |
 | `ndrop_bam_ccpp` |  | ❌ | ❌ |
 | `nucleate_ice_ccpp` |  | ❌ | ❌ |
 | `prescribe_lower_boundary_conditions` | ❌ |  |  |
@@ -87,76 +88,76 @@ come from the cam4 and FPHYStest runs.
 | `prescribed_aerosols` | ❌ | ❌ | ❌ |
 | `prescribed_ozone` | ❌ | ❌ | ❌ |
 | `prescribed_volcanic_aerosol` | ❌ |  | ❌ |
-| `prognostic_cloud_water` | ❌ |  |  |
-| `pumas_post_main` |  | ✅ | ✅ |
-| `qneg` | ✅ | ✅ | ✅ |
-| `rebin_seasalt` | ✅ | ✅ | ✅ |
+| `prognostic_cloud_water` | ❌ 🧪 |  |  |
+| `pumas_post_main` |  | ✅ 🧪 | ✅ 🧪 |
+| `qneg` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `rebin_seasalt` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
 | `rk_stratiform_check_qtlcwat` | ❌ |  |  |
 | `rk_stratiform_cloud_fraction_perturbation` | ❌ |  |  |
 | `rk_stratiform_cloud_optical_properties` | ❌ |  |  |
 | `rk_stratiform_condensate_repartioning` | ❌ |  |  |
 | `rk_stratiform_detrain_convective_condensate` | ❌ |  |  |
 | `rk_stratiform_external_forcings` | ❌ |  |  |
-| `rk_stratiform_prepare_flux_for_check_energy` | ✅ |  |  |
+| `rk_stratiform_prepare_flux_for_check_energy` | ✅ 🧪 |  |  |
 | `rk_stratiform_prognostic_cloud_water_tendencies` | ❌ |  |  |
 | `rk_stratiform_pumas_optics_inputs` | ❌ |  |  |
 | `rk_stratiform_save_qtlcwat` | ❌ |  |  |
 | `rk_stratiform_sedimentation` | ❌ |  |  |
-| `rrtmgp_constituents` | ✅ | ✅ | ✅ |
-| `rrtmgp_dry_static_energy_tendency` | ✅ | ✅ | ✅ |
+| `rrtmgp_constituents` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `rrtmgp_dry_static_energy_tendency` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
 | `rrtmgp_inputs` | ❌ | ❌ | ❌ |
 | `rrtmgp_lw_aerosols` | ❌ | ❌ | ❌ |
 | `rrtmgp_lw_calculate_fluxes` | ❌ | ❌ | ❌ |
-| `rrtmgp_lw_calculate_heating_rate` | ✅ | ✅ | ✅ |
+| `rrtmgp_lw_calculate_heating_rate` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
 | `rrtmgp_lw_cloud_optics` | ❌ | ❌ | ❌ |
 | `rrtmgp_lw_gas_optics` | ✅ | ✅ | ✅ |
 | `rrtmgp_lw_gas_optics_pre` | ❌ | ❌ | ❌ |
 | `rrtmgp_lw_mcica_subcol_gen` | ❌ | ❌ | ❌ |
 | `rrtmgp_lw_rte` | ✅ | ✅ | ✅ |
 | `rrtmgp_post` | ❌ | ❌ | ❌ |
-| `rrtmgp_pre` | ❌ | ❌ | ❌ |
-| `rrtmgp_subcycle` | ❌ | ❌ | ❌ |
+| `rrtmgp_pre` | ❌ 🧪 | ❌ 🧪 | ❌ 🧪 |
+| `rrtmgp_subcycle` | ❌ 🧪 | ❌ 🧪 | ❌ 🧪 |
 | `rrtmgp_sw_aerosols` | ❌ | ❌ | ❌ |
 | `rrtmgp_sw_calculate_fluxes` | ❌ | ❌ | ❌ |
-| `rrtmgp_sw_calculate_heating_rate` | ✅ | ✅ | ✅ |
+| `rrtmgp_sw_calculate_heating_rate` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
 | `rrtmgp_sw_cloud_optics` | ❌ | ❌ | ❌ |
 | `rrtmgp_sw_gas_optics` | ✅ | ✅ | ✅ |
 | `rrtmgp_sw_gas_optics_pre` | ❌ | ❌ | ❌ |
 | `rrtmgp_sw_mcica_subcol_gen` | ❌ | ❌ | ❌ |
 | `rrtmgp_sw_rte` | ✅ | ✅ | ✅ |
 | `rrtmgp_sw_solar_var` | ❌ | ❌ | ❌ |
-| `rrtmgp_variables` | ❌ | ❌ | ❌ |
+| `rrtmgp_variables` | ❌ 🧪 | ❌ 🧪 | ❌ 🧪 |
 | `save_core_tend_from_convect_deep` |  |  | ❌ |
 | `save_ttend_from_convect_deep` |  |  | ❌ |
-| `scale_subgrid_vertical_velocity` |  | ❌ | ❌ |
-| `set_deep_conv_fluxes_to_general` | ✅ | ✅ | ✅ |
-| `set_general_conv_fluxes_to_deep` | ✅ | ✅ | ✅ |
-| `set_general_conv_fluxes_to_shallow` | ✅ |  |  |
-| `set_shallow_conv_fluxes_to_general` | ✅ |  |  |
-| `set_surface_coupling_vars` | ✅ | ✅ |  |
+| `scale_subgrid_vertical_velocity` |  | ❌ 🧪 | ❌ 🧪 |
+| `set_deep_conv_fluxes_to_general` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `set_general_conv_fluxes_to_deep` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `set_general_conv_fluxes_to_shallow` | ✅ 🧪 |  |  |
+| `set_shallow_conv_fluxes_to_general` | ✅ 🧪 |  |  |
+| `set_surface_coupling_vars` | ✅ 🧪 | ✅ 🧪 |  |
 | `solar_irradiance_data` | ❌ | ❌ | ❌ |
-| `tms_beljaars_zero_stub` | ✅ |  |  |
-| `tropopause_find` | ✅ | ✅ | ✅ |
-| `turbulent_mountain_stress_add_drag_coefficient` |  | ✅ |  |
-| `update_dry_static_energy` | ✅ | ✅ | ✅ |
-| `vertical_diffusion_diffuse_dry_static_energy` | ❌ | ❌ |  |
-| `vertical_diffusion_diffuse_horizontal_momentum` | ❌ | ❌ |  |
-| `vertical_diffusion_diffuse_tracers` | ❌ | ❌ |  |
-| `vertical_diffusion_interpolate_to_interfaces` | ❌ | ❌ |  |
-| `vertical_diffusion_prepare_inputs` | ❌ | ❌ |  |
-| `vertical_diffusion_set_dry_static_energy_at_toa_zero` | ❌ | ❌ |  |
-| `vertical_diffusion_set_temperature_at_toa_default` | ❌ | ❌ |  |
-| `vertical_diffusion_set_total_surface_stress` | ❌ | ❌ |  |
-| `vertical_diffusion_sponge_layer` | ✅ | ✅ |  |
-| `vertical_diffusion_tendencies` | ❌ | ❌ |  |
-| `vertical_diffusion_wind_damping_rate` | ❌ | ❌ |  |
+| `tms_beljaars_zero_stub` | ✅ 🧪 |  |  |
+| `tropopause_find` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `turbulent_mountain_stress_add_drag_coefficient` |  | ✅ 🧪 |  |
+| `update_dry_static_energy` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `vertical_diffusion_diffuse_dry_static_energy` | ❌ 🧪 | ❌ 🧪 |  |
+| `vertical_diffusion_diffuse_horizontal_momentum` | ❌ 🧪 | ❌ 🧪 |  |
+| `vertical_diffusion_diffuse_tracers` | ❌ 🧪 | ❌ 🧪 |  |
+| `vertical_diffusion_interpolate_to_interfaces` | ❌ 🧪 | ❌ 🧪 |  |
+| `vertical_diffusion_prepare_inputs` | ❌ 🧪 | ❌ 🧪 |  |
+| `vertical_diffusion_set_dry_static_energy_at_toa_zero` | ❌ 🧪 | ❌ 🧪 |  |
+| `vertical_diffusion_set_temperature_at_toa_default` | ❌ 🧪 | ❌ 🧪 |  |
+| `vertical_diffusion_set_total_surface_stress` | ❌ 🧪 | ❌ 🧪 |  |
+| `vertical_diffusion_sponge_layer` | ✅ 🧪 | ✅ 🧪 |  |
+| `vertical_diffusion_tendencies` | ❌ 🧪 | ❌ 🧪 |  |
+| `vertical_diffusion_wind_damping_rate` | ❌ 🧪 | ❌ 🧪 |  |
 | `wv_saturation` | ✅ | ✅ | ✅ |
 | `zm_conv_cloud_top` |  |  | ❌ |
-| `zm_conv_convtran` | ✅ | ✅ | ✅ |
-| `zm_conv_evap` | ✅ | ✅ | ✅ |
-| `zm_conv_momtran` | ✅ | ✅ | ✅ |
-| `zm_convr` | ❌ | ❌ | ❌ |
-| `zm_prepare_flux_for_check_energy` | ✅ |  | ✅ |
+| `zm_conv_convtran` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `zm_conv_evap` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `zm_conv_momtran` | ✅ 🧪 | ✅ 🧪 | ✅ 🧪 |
+| `zm_convr` | ❌ 🧪 | ❌ 🧪 | ❌ 🧪 |
+| `zm_prepare_flux_for_check_energy` | ✅ 🧪 |  | ✅ 🧪 |
 | **Register/init/final-only schemes** (✅ / schemes) | **0/13** | **0/13** | **0/12** |
 | `cloud_fraction_options` | ❌ | ❌ | ❌ |
 | `clubb_stub` |  |  | ❌ |
