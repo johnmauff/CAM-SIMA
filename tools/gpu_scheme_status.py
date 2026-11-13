@@ -28,6 +28,11 @@ Verification is per scheme: a scheme verified in any suite is ✅ in every
 configuration that uses it. The tool cannot tell whether a scheme's source
 changed after the test run; give it the latest regression.
 
+The table has three sections, each headed by its count of ✅ schemes per
+configuration (e.g. 47/132): per-timestep physics schemes; schemes with only
+register/init/final phases; history-diagnostics schemes (name containing
+"diagnostics", whatever their phases).
+
 Example (the GPU regression on Derecho):
   tools/gpu_scheme_status.py \\
     --test-root /glade/derecho/scratch/$USER/fphys_xdsl_test --test-id xdsl84gpu
@@ -183,9 +188,16 @@ def main():
     info = scheme_sources(names)
     gpu_objs = gpu_objects()
 
-    rows, init_only, diagnostics = [], [], []
-    counts = {c: [0, 0] for c in CONFIGS}
+    sections = {"physics": [], "one_time": [], "diagnostics": []}
+    counts = {sec: {c: [0, 0] for c in CONFIGS} for sec in sections}
     for name in names:
+        phases = info[name][0]
+        if "diagnostics" in name:
+            section = "diagnostics"
+        elif not phases - ONE_TIME:
+            section = "one_time"
+        else:
+            section = "physics"
         phases, acc, sources = info[name]
         built = bool(sources) and all(os.path.splitext(s)[0] in gpu_objs for s in sources)
         ok = name in tested and (name in callee_gpu or (acc and built))
@@ -193,19 +205,26 @@ def main():
         for config in CONFIGS:
             if name in suites[config]:
                 cells.append(OK if ok else NO)
-                counts[config][0 if ok else 1] += 1
+                counts[section][config][0 if ok else 1] += 1
             else:
                 cells.append("")
         mark = " ¹" if name in callee_gpu and ok else ""
-        rows.append(f"| `{name}`{mark} | " + " | ".join(cells) + " |")
-        if not ok:
-            if not phases - ONE_TIME:
-                init_only.append(name)
-            elif "diagnostics" in name:
-                diagnostics.append(name)
+        sections[section].append(f"| `{name}`{mark} | " + " | ".join(cells) + " |")
 
-    totals = " · ".join(f"{c}: {counts[c][0]} {OK} / {counts[c][1]} {NO} of {sum(counts[c])}"
-                        for c in CONFIGS)
+    def header(title, section):
+        cells = " | ".join(f"**{counts[section][c][0]}/{sum(counts[section][c])}**"
+                           for c in CONFIGS)
+        return f"| **{title}** ({OK} / schemes) | {cells} |"
+
+    table = "\n".join(
+        [header("Physics schemes", "physics")] + sections["physics"]
+        + [header("Register/init/final-only schemes", "one_time")] + sections["one_time"]
+        + [header("Diagnostics schemes", "diagnostics")] + sections["diagnostics"]
+    )
+    totals = ", ".join(
+        f"{c} {sum(counts[sec][c][0] for sec in sections)}/"
+        f"{sum(sum(counts[sec][c]) for sec in sections)}" for c in CONFIGS
+    )
     evidence = ", ".join(args.test_id)
     if args.verified_scheme:
         evidence += "; also verified elsewhere: " + ", ".join(
@@ -222,8 +241,6 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - {NO} CPU only
 - blank: the scheme is not in that configuration's suite
 
-**Totals:** {totals}
-
 Generated {datetime.date.today().isoformat()} by `tools/gpu_scheme_status.py`
 (CAM-SIMA `{git_head(REPO)}`, atmospheric_physics `{git_head(PHYSICS)}`) from GPU
 tests that passed bit-for-bit against their CPU baselines: {evidence}
@@ -236,18 +253,18 @@ come from the cam4 and FPHYStest runs.
 
 | Scheme | cam4 | cam5 | cam7 |
 |---|:---:|:---:|:---:|
-""" + "\n".join(rows) + f"""
+""" + table + f"""
 
 ¹ No OpenACC in the CCPP wrapper itself; the package it calls runs on the GPU
 and is verified bit-for-bit.
 
-## Notes on the {NO} entries
+## Sections
 
-Not every {NO} needs a GPU port:
-- **Init/register/final only** ({len(init_only)}): no per-timestep work.
-  {", ".join(f"`{n}`" for n in init_only)}.
-- **History diagnostics** ({len(diagnostics)}): write history output on the host.
-  {", ".join(f"`{n}`" for n in diagnostics)}.
+- **Physics schemes**: schemes with per-timestep phases (timestep_init, run,
+  timestep_final) -- the GPU porting work.
+- **Register/init/final-only schemes**: no per-timestep work; {NO} here rarely
+  needs a port.
+- **Diagnostics schemes**: write history output on the host.
 """
     with open(args.output, "w") as out:
         out.write(text)
