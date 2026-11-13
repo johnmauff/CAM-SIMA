@@ -29,8 +29,10 @@ configuration that uses it. The tool cannot tell whether a scheme's source
 changed after the test run; give it the latest regression.
 
 The table has three sections, each headed by its count of ✅ schemes per
-configuration (e.g. 47/132): per-timestep physics schemes; schemes with only
-register/init/final phases; history-diagnostics schemes (name containing
+configuration (e.g. 47/132): per-timestep physics schemes (with libraries: a
+register/init/final-only scheme whose module holds routines other schemes
+call, e.g. wv_saturation); other schemes with only register/init/final
+phases; history-diagnostics schemes (name containing
 "diagnostics", whatever their phases).
 
 Example (the GPU regression on Derecho):
@@ -61,6 +63,12 @@ _SUB = (r"^[ \t]*(?:(?:pure|elemental|impure|recursive|module)[ \t]+)*"
         r"subroutine[ \t]+{}_(" + "|".join(PHASES) + r")\b")
 _END = re.compile(r"^\s*end\s+subroutine", re.M | re.I)
 _ACC = re.compile(r"^\s*!\$acc\b", re.M | re.I)
+_PROC = re.compile(
+    r"^[ \t]*(?:(?:pure|elemental|impure|recursive|module)[ \t]+)*"
+    r"(?:(?:real|integer|logical|character|complex)(?:\([^)]*\))?[ \t]+)?"
+    r"(?:subroutine|function)[ \t]+(\w+)", re.M | re.I)
+_PHASE_PROC = re.compile(r"_(?:" + "|".join(PHASES) + r")$", re.I)
+_MODULE = re.compile(r"^\s*module\s+(?!procedure\b)(\w+)", re.M | re.I)
 
 
 def suite_schemes(path):
@@ -123,8 +131,27 @@ def verified_suites(test_root, test_ids):
     return suites, cases
 
 
+def _library_users(path, texts):
+    """Files that use the module in *path* and call one of its procedures
+    other than scheme phases (<x>_init, <x>_run, ...)."""
+    text = texts[path]
+    module = _MODULE.search(text)
+    procs = {p.lower() for p in _PROC.findall(text) if not _PHASE_PROC.search(p)}
+    if module is None or not procs:
+        return []
+    use = re.compile(rf"^\s*use\s+{re.escape(module.group(1))}\b", re.M | re.I)
+    called = re.compile(r"\b(?:" + "|".join(map(re.escape, sorted(procs))) + r")\b", re.I)
+    return [other for other, other_text in texts.items()
+            if other != path and use.search(other_text) and called.search(other_text)]
+
+
 def scheme_sources(names):
-    """name -> (phases, has_acc, source files) from the non-test Fortran."""
+    """name -> (phases, has_acc, source files, library) from the non-test
+    Fortran. library: a scheme with only register/init/final phases whose
+    module holds routines other schemes call (wv_saturation's qsat_vect,
+    gw_common's gw_drag_prof): it does per-timestep work inside those
+    schemes, so it counts as a physics scheme, and its OpenACC check covers
+    the whole module."""
     files = [f for f in glob.glob(os.path.join(PHYSICS, "**", "*.F90"), recursive=True)
              if f"{os.sep}test{os.sep}" not in f]
     texts = {f: open(f, errors="replace").read() for f in files}
@@ -139,7 +166,13 @@ def scheme_sources(names):
                 end = _END.search(text, match.end())
                 body = text[match.end(): end.start() if end else len(text)]
                 acc = acc or bool(_ACC.search(body))
-        info[name] = (phases, acc, sources)
+        library = False
+        if phases and not phases - ONE_TIME:
+            paths = [p for p in texts if os.path.basename(p) in sources]
+            if any(_library_users(p, texts) for p in paths):
+                library = True
+                acc = any(_ACC.search(texts[p]) for p in paths)
+        info[name] = (phases, acc, sources, library)
     return info
 
 
@@ -191,14 +224,14 @@ def main():
     sections = {"physics": [], "one_time": [], "diagnostics": []}
     counts = {sec: {c: [0, 0] for c in CONFIGS} for sec in sections}
     for name in names:
-        phases = info[name][0]
+        phases, _acc, _sources, library = info[name]
         if "diagnostics" in name:
             section = "diagnostics"
-        elif not phases - ONE_TIME:
+        elif not phases - ONE_TIME and not library:
             section = "one_time"
         else:
             section = "physics"
-        phases, acc, sources = info[name]
+        phases, acc, sources, library = info[name]
         built = bool(sources) and all(os.path.splitext(s)[0] in gpu_objs for s in sources)
         ok = name in tested and (name in callee_gpu or (acc and built))
         cells = []
@@ -261,7 +294,10 @@ and is verified bit-for-bit.
 ## Sections
 
 - **Physics schemes**: schemes with per-timestep phases (timestep_init, run,
-  timestep_final) -- the GPU porting work.
+  timestep_final), and libraries: register/init/final-only schemes whose
+  module holds routines other schemes call each timestep
+  (`wv_saturation`'s `qsat_vect`, `gravity_wave_drag_common`'s
+  `gw_drag_prof`) -- the GPU porting work.
 - **Register/init/final-only schemes**: no per-timestep work; {NO} here rarely
   needs a port.
 - **Diagnostics schemes**: write history output on the host.

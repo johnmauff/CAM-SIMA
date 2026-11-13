@@ -9,7 +9,7 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - blank: the scheme is not in that configuration's suite
 
 Generated 2026-11-12 by `tools/gpu_scheme_status.py`
-(CAM-SIMA `fdba0fa`, atmospheric_physics `7663967`) from GPU
+(CAM-SIMA `a869058`, atmospheric_physics `7663967`) from GPU
 tests that passed bit-for-bit against their CPU baselines: xdsl82gpu; also verified elsewhere: `pumas_post_main`
 (33 cases). A scheme is ✅ when its own routines carry OpenACC
 directives (or, for `micro_pumas_ccpp`, the package it calls runs on the GPU), its
@@ -20,7 +20,7 @@ come from the cam4 and FPHYStest runs.
 
 | Scheme | cam4 | cam5 | cam7 |
 |---|:---:|:---:|:---:|
-| **Physics schemes** (✅ / schemes) | **48/106** | **46/94** | **40/85** |
+| **Physics schemes** (✅ / schemes) | **49/108** | **47/97** | **41/88** |
 | `aerosol_optics` | ❌ |  | ❌ |
 | `apply_constituent_tendencies` | ✅ | ✅ | ✅ |
 | `apply_heating_rate` | ✅ | ✅ | ✅ |
@@ -44,6 +44,7 @@ come from the cam4 and FPHYStest runs.
 | `cloud_particle_sedimentation` | ❌ |  |  |
 | `cloud_water_paths` | ❌ | ❌ | ❌ |
 | `compute_cloud_fraction` | ✅ | ✅ |  |
+| `compute_cloud_fraction_two_moment` |  | ❌ | ❌ |
 | `compute_kinematic_fluxes_and_obklen` | ❌ | ❌ |  |
 | `compute_relative_humidity` |  |  | ❌ |
 | `compute_subgrid_vertical_velocity_clubb` |  |  | ❌ |
@@ -59,6 +60,7 @@ come from the cam4 and FPHYStest runs.
 | `dycore_energy_consistency_adjust` | ✅ | ✅ | ✅ |
 | `eddy_diffusivity_adjustment_above_pbl` |  | ✅ |  |
 | `geopotential_temp` | ✅ | ✅ | ✅ |
+| `gravity_wave_drag_common` | ❌ | ❌ | ❌ |
 | `gravity_wave_drag_convection_deep` |  |  | ❌ |
 | `gravity_wave_drag_frontogenesis` |  |  | ❌ |
 | `gravity_wave_drag_moving_mountain` |  |  | ❌ |
@@ -148,17 +150,16 @@ come from the cam4 and FPHYStest runs.
 | `vertical_diffusion_sponge_layer` | ✅ | ✅ |  |
 | `vertical_diffusion_tendencies` | ❌ | ❌ |  |
 | `vertical_diffusion_wind_damping_rate` | ❌ | ❌ |  |
+| `wv_saturation` | ✅ | ✅ | ✅ |
 | `zm_conv_cloud_top` |  |  | ❌ |
 | `zm_conv_convtran` | ✅ | ✅ | ✅ |
 | `zm_conv_evap` | ✅ | ✅ | ✅ |
 | `zm_conv_momtran` | ✅ | ✅ | ✅ |
 | `zm_convr` | ❌ | ❌ | ❌ |
 | `zm_prepare_flux_for_check_energy` | ✅ |  | ✅ |
-| **Register/init/final-only schemes** (✅ / schemes) | **1/15** | **1/16** | **1/15** |
+| **Register/init/final-only schemes** (✅ / schemes) | **0/13** | **0/13** | **0/12** |
 | `cloud_fraction_options` | ❌ | ❌ | ❌ |
 | `clubb_stub` |  |  | ❌ |
-| `compute_cloud_fraction_two_moment` |  | ❌ | ❌ |
-| `gravity_wave_drag_common` | ❌ | ❌ | ❌ |
 | `gravity_wave_drag_ridge` |  |  | ❌ |
 | `gravity_wave_drag_top_taper` | ❌ | ❌ | ❌ |
 | `hb_diff_set_vertical_diffusion_top` | ❌ | ❌ |  |
@@ -173,7 +174,6 @@ come from the cam4 and FPHYStest runs.
 | `to_be_ccppized_temporary` | ❌ | ❌ | ❌ |
 | `vertical_diffusion_not_use_rairv` | ❌ | ❌ |  |
 | `vertical_diffusion_options` | ❌ | ❌ |  |
-| `wv_saturation` | ✅ | ✅ | ✅ |
 | `zero_upper_boundary_condition` | ❌ | ❌ |  |
 | `zm_conv_options` | ❌ | ❌ | ❌ |
 | **Diagnostics schemes** (✅ / schemes) | **0/34** | **0/22** | **0/27** |
@@ -229,7 +229,10 @@ and is verified bit-for-bit.
 ## Sections
 
 - **Physics schemes**: schemes with per-timestep phases (timestep_init, run,
-  timestep_final) -- the GPU porting work.
+  timestep_final), and libraries: register/init/final-only schemes whose
+  module holds routines other schemes call each timestep
+  (`wv_saturation`'s `qsat_vect`, `gravity_wave_drag_common`'s
+  `gw_drag_prof`) -- the GPU porting work.
 - **Register/init/final-only schemes**: no per-timestep work; ❌ here rarely
   needs a port.
 - **Diagnostics schemes**: write history output on the host.
