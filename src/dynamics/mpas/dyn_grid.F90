@@ -45,8 +45,11 @@ module dyn_grid
     ]
 
     ! Local and global mesh dimensions of MPAS dynamical core.
-    ! Protected module variables that can only be initialized by `dyn_inquire_mesh_dimensions`.
-    integer, protected :: ncells, ncells_solve, nedges, nedges_solve, nvertices, nvertices_solve, nvertlevels
-    integer, protected :: ncells_global, nedges_global, nvertices_global, ncells_max, nedges_max
-    real(kind_dyn_mpas), protected :: sphere_radius
+    ! NOTE: these are not PROTECTED. nvfortran does not allow a submodule to define an ancestor module's
+    ! PROTECTED variable (even though this is legal per the Fortran standard, since submodule procedures
+    ! have host access, not USE access, to the module's entities). `dyn_grid_impl`'s
+    ! `dyn_inquire_mesh_dimensions` is the only place that should ever assign to these variables.
+    integer :: ncells, ncells_solve, nedges, nedges_solve, nvertices, nvertices_solve, nvertlevels
+    integer :: ncells_global, nedges_global, nvertices_global, ncells_max, nedges_max
+    real(kind_dyn_mpas) :: sphere_radius
 end module dyn_grid

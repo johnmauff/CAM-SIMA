@@ -1,2 +1,8 @@
  ./xmlchange CAM_CONFIG_OPTS="--dyn none --physics-suites rrtmgp"
 ./xmlchange RUN_STARTDATE=1979-01-01
+# nvhpc CPU/GPU verification: run the GPU (accel/) rte-rrtmgp kernels on the
+# CPU too, so the CPU test and its _gpu counterpart use the same algorithm
+# and can be compared bit for bit. gnu/intel keep the CPU kernels.
+if [ "$(./xmlquery --value COMPILER)" = "nvhpc" ]; then
+  ./xmlchange RRTMGP_KERNELS=accel
+fi

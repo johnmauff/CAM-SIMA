@@ -66,6 +66,69 @@
     <desc>CAM dynamical core</desc>
   </entry>
 
+  <entry id="CCPP_GENERATOR">
+    <type>char</type>
+    <valid_values>capgen,xdsl_ccpp</valid_values>
+    <default_value>capgen</default_value>
+    <group>build_component_cam</group>
+    <file>env_build.xml</file>
+    <desc>CCPP cap-generation backend: capgen (default) or xdsl_ccpp</desc>
+  </entry>
+
+  <entry id="RRTMGP_KERNELS">
+    <type>char</type>
+    <valid_values>auto,accel</valid_values>
+    <default_value>auto</default_value>
+    <group>build_component_cam</group>
+    <file>env_build.xml</file>
+    <desc>Which rte-rrtmgp kernel implementation the build uses. auto (default): the CPU kernels (rte-kernels/, rrtmgp-kernels/) in a CPU build and the GPU kernels (their accel/ subdirectories) in a GPU build -- the fastest on each architecture, for production and performance runs. accel: the accel/ kernels in a CPU build too (compiled without OpenACC), so CPU and GPU builds run the same RRTMGP algorithm and can be compared bit for bit -- for CPU/GPU verification only. Takes effect when the physics caps are generated (a new case, or after removing bld/atm/obj/cam_build_cache.xml).</desc>
+  </entry>
+
+  <entry id="XDSL_CCPP_PYTHON">
+    <type>char</type>
+    <valid_values></valid_values>
+    <default_value></default_value>
+    <group>build_component_cam</group>
+    <file>env_build.xml</file>
+    <desc>xdsl_ccpp only: the Python interpreter that has xdsl_ccpp installed (e.g. a venv's bin/python). The XDSL_CCPP_PYTHON environment variable, when set, overrides it. Empty: the interpreter cached in the build directory by the last cap generation, else the one running the build. The build stops if the chosen interpreter cannot import xdsl_ccpp.</desc>
+  </entry>
+
+  <entry id="XDSL_CCPP_CAPTURE_SCHEME">
+    <type>char</type>
+    <valid_values></valid_values>
+    <default_value></default_value>
+    <group>build_component_cam</group>
+    <file>env_build.xml</file>
+    <desc>xdsl_ccpp only: scheme I/O capture. A SCHEME[:PHASE,...] entry, or the path of a file listing them one per line; each captured scheme call is written to NetCDF in the run. Empty (default): no capture. The XDSL_CCPP_CAPTURE_SCHEME environment variable, when set, overrides it.</desc>
+  </entry>
+
+  <entry id="XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR">
+    <type>char</type>
+    <valid_values></valid_values>
+    <default_value></default_value>
+    <group>build_component_cam</group>
+    <file>env_build.xml</file>
+    <desc>xdsl_ccpp only, with XDSL_CCPP_CAPTURE_SCHEME: the directory for the generated capture test drivers and their CMake build; the capture files go to its subdirectory named after the case. The XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR environment variable, when set, overrides it.</desc>
+  </entry>
+
+  <entry id="CCPP_PACKAGE_CAPS">
+    <type>logical</type>
+    <valid_values>TRUE,FALSE</valid_values>
+    <default_value>FALSE</default_value>
+    <group>build_component_cam</group>
+    <file>env_build.xml</file>
+    <desc>xdsl_ccpp only: generate one Fortran module per package of a Python suite (--package-caps)</desc>
+  </entry>
+
+  <entry id="CCPP_SUITE_DIR">
+    <type>char</type>
+    <valid_values></valid_values>
+    <default_value></default_value>
+    <group>build_component_cam</group>
+    <file>env_build.xml</file>
+    <desc>Directory to read the physics suite definition from, relative to src/physics/ncar_ccpp (or absolute), e.g. suites-py for the Python suites, test/test_suites-py for the Python test suites. Empty (default): SourceMods/src.cam, then suites, then test/test_suites.</desc>
+  </entry>
+
   <entry id="CAM_CONFIG_OPTS">
     <type>char</type>
     <valid_values></valid_values>

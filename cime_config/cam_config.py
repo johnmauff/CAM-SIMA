@@ -32,6 +32,7 @@ from cam_build_cache import BuildCacheCAM # Re-build consistency cache
 # Import fortran auto-generation routines:
 from cam_autogen import generate_registry, generate_physics_suites
 from cam_autogen import generate_init_routines
+from cam_autogen import _xdsl_capture_settings, write_capture_compile_flags
 
 ###############################################################################
 #HELPER FUNCTIONS
@@ -191,6 +192,31 @@ class ConfigCAM:
         self.__bldroot  = os.path.join(exeroot, "atm", "obj")
         self.__atm_name = case.get_value("COMP_ATM")
         self.__gpu_flag = case.get_value("OPENACC_GPU_OFFLOAD") #Returns a Boolean
+        # rte-rrtmgp kernels: "auto" (CPU kernels on CPU, GPU kernels on GPU)
+        # or "accel" (GPU kernels everywhere, for CPU/GPU verification).
+        # None in a case created before RRTMGP_KERNELS existed.
+        self.__rrtmgp_kernels = case.get_value("RRTMGP_KERNELS") or "auto"
+        # CCPP cap-generation backend: 'capgen' (default) or 'xdsl_ccpp'.
+        self.__ccpp_generator = case.get_value("CCPP_GENERATOR")
+        # xdsl_ccpp only: one Fortran module per package of a Python suite.
+        self.__package_caps = bool(case.get_value("CCPP_PACKAGE_CAPS"))
+        # xdsl_ccpp only: the interpreter with xdsl_ccpp installed (empty:
+        # $XDSL_CCPP_PYTHON, the build-directory cache, this interpreter).
+        self.__xdsl_python = case.get_value("XDSL_CCPP_PYTHON") or ""
+        # xdsl_ccpp scheme I/O capture: what to capture and where the test
+        # drivers go. None (not "") in a case created before these
+        # variables existed, which then falls back to the build cache.
+        capture_values = (case.get_value("XDSL_CCPP_CAPTURE_SCHEME"),
+                          case.get_value("XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR"))
+        self.__capture_case_values = (None if None in capture_values
+                                      else capture_values)
+        # Directory to read the suite definition from (empty: the default search).
+        self.__suite_dir = case.get_value("CCPP_SUITE_DIR") or ""
+        # The build's parallelism, also used for xdsl_ccpp's parallel
+        # Fortran-vs-.meta check (generation runs before compiling).
+        self.__gmake_j = int(case.get_value("GMAKE_J") or 1)
+        # xdsl_ccpp scheme I/O capture: the label of the captured data.
+        self.__case_name = case.get_value("CASE")
 
         # Save CPP definitions as a list:
         self.__cppdefs = [x for x in case.get_value("CAM_CPPDEFS").split() if x]
@@ -910,8 +936,16 @@ class ConfigCAM:
                                           self.__atm_name, phys_suites,
                                           self.__atm_root, self.__bldroot,
                                           reg_dir, reg_files, source_mods_dir,
-                                          self.__gpu_flag, force_ccpp)
-        phys_dirs, force_init, _, nml_fils, capgen_db, scheme_names = retvals
+                                          self.__gpu_flag, force_ccpp,
+                                          self.__ccpp_generator,
+                                          package_caps=self.__package_caps,
+                                          suite_dir=self.__suite_dir,
+                                          jobs=self.__gmake_j,
+                                          case_name=self.__case_name,
+                                          xdsl_python=self.__xdsl_python,
+                                          capture_case_values=self.__capture_case_values,
+                                          rrtmgp_kernels=self.__rrtmgp_kernels)
+        phys_dirs, force_init, _, nml_fils, resolved_vars_source, scheme_names = retvals
 
         # Add namelist definition files to dictionary:
         for nml_fil in nml_fils:
@@ -930,8 +964,9 @@ class ConfigCAM:
         init_dir = generate_init_routines(build_cache, self.__bldroot,
                                           force_ccpp, force_init,
                                           source_mods_dir, gen_fort_indent,
-                                          capgen_db, ic_names, registry_constituents,
-                                          vars_init_value)
+                                          resolved_vars_source, ic_names, registry_constituents,
+                                          vars_init_value, self.__ccpp_generator,
+                                          xdsl_python=self.__xdsl_python)
 
         #Add registry path to config object:
         init_dir_desc = "Location of auto-generated physics initialization code."
@@ -944,6 +979,27 @@ class ConfigCAM:
 
         #Return the set of all scheme names present in the SDFs:
         return scheme_names
+
+    #++++++++++++++++++++++++
+
+    def write_capture_compile_flags(self, make_output):
+        """
+        With xdsl_ccpp scheme I/O capture and a test driver directory:
+        write the compile flags of this build (<make_output>, the atm
+        build's make output) to the driver directory, for the replay
+        build (cam_autogen.write_capture_compile_flags). Returns the path
+        written, or None.
+        """
+        if self.__ccpp_generator != "xdsl_ccpp":
+            return None
+        # end if
+        genccpp_dir = os.path.join(self.__bldroot, "ccpp")
+        scheme_spec, driver_dir = _xdsl_capture_settings(
+            genccpp_dir, self.__capture_case_values)
+        if not (scheme_spec and driver_dir and os.path.isdir(driver_dir)):
+            return None
+        # end if
+        return write_capture_compile_flags(make_output, genccpp_dir, driver_dir)
 
     #++++++++++++++++++++++++
 

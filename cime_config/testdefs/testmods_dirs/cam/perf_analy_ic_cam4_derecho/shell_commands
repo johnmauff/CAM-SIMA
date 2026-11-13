@@ -1,0 +1,8 @@
+# Performance test: CAM4 aquaplanet, MPAS 120 km (40,962 columns, 26 levels).
+# CPU reference layout: 512 MPI ranks = 4 Derecho CPU nodes; the GPU
+# counterpart (perf_analy_ic_cam4_derecho_gpu) uses one GPU node. Compare
+# the ESMF_Profile.summary timers (phys_run1/2, d_p_coupling, p_d_coupling,
+# stepon_run3). No extra history output, so I/O does not dominate.
+./xmlchange CAM_LINKED_LIBS=" "
+./xmlchange --append CAM_CONFIG_OPTS="--analytic-ic"
+./xmlchange NTASKS=512,NTHRDS=1,ROOTPE=0

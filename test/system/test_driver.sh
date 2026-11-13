@@ -282,6 +282,9 @@ cat > ${submit_script_cime} << EOF
 #PBS -l select=1:ncpus=128:mpiprocs=128
 #PBS -j oe
 
+export CCPP_GENERATOR=xdsl_ccpp
+export XDSL_CCPP_PYTHON=/glade/derecho/scratch/dennis/Claude.CAM-SIMA/venv/bin/python3
+
 EOF
 
 ##^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ writing to batch script ^^^^^^^^^^^^^^^^^^^
@@ -654,7 +657,18 @@ if [ "${cesm_test_suite}" != "none" -a -n "${cesm_test_mach}" ]; then
 
     if [ "${hostname:0:2}" == "de" ]; then
       echo "cd ${script_dir}" >> ${submit_script_cime}
-      echo './create_test' ${testargs} >> ${submit_script_cime}
+      echo './create_test' ${testargs} '--no-build' >> ${submit_script_cime}
+      # After setup: set CCPP_GENERATOR=xdsl_ccpp in each case and pre-seed the
+      # xdsl_ccpp python-interpreter cache so the venv is used inside PBS build jobs.
+      echo "for _d in ${cesm_testdir}/*.${test_id}; do" >> ${submit_script_cime}
+      echo '  [ -d "$_d" ] || continue' >> ${submit_script_cime}
+      echo '  (cd "$_d" && ./xmlchange CCPP_GENERATOR=xdsl_ccpp)' >> ${submit_script_cime}
+      echo '  _exe=$(cd "$_d" && ./xmlquery EXEROOT --value)' >> ${submit_script_cime}
+      echo '  mkdir -p "$_exe/atm/obj/ccpp"' >> ${submit_script_cime}
+      echo '  printf "%s" "$XDSL_CCPP_PYTHON" > "$_exe/atm/obj/ccpp/.xdsl_ccpp_python"' >> ${submit_script_cime}
+      echo "done" >> ${submit_script_cime}
+      echo "cd ${cesm_testdir}" >> ${submit_script_cime}
+      echo "./cs.submit.${test_id}" >> ${submit_script_cime}
       chmod u+x ${submit_script_cime}
       qsub ${submit_script_cime}
    fi

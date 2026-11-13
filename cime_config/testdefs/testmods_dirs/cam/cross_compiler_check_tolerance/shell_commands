@@ -1,0 +1,20 @@
+# Include-only: physics-check snapshots name the compiler that made them
+# (..._derecho_gnu_after_...nc). When this case uses a different compiler,
+# results differ by math-library rounding (observed up to ~4e-12), so set
+# the ncdata_check threshold to 1e-11: replace this testmod's
+# min_difference, or add one. A testmod that needs a different value says
+# so in its user_nl_cam with a comment line
+#   ! cross_compiler_min_difference = <value>
+# (pumas: 1e-9). Same compiler, or none in the file name: unchanged. Runs
+# after all user_nl_cam files are written.
+snap=`sed -n "s/^ *ncdata_check *= *['\"]*\([^'\" ]*\).*/\1/p" user_nl_cam | tail -1`
+snap_compiler=`basename "$snap" | grep -oE '_(gnu|intel|nvhpc)_' | head -1 | tr -d _`
+tol=`sed -n "s/^ *! *cross_compiler_min_difference *= *\([^ ]*\).*/\1/p" user_nl_cam | tail -1`
+tol=${tol:-1e-11}
+if [ -n "$snap_compiler" ] && [ "$snap_compiler" != "`./xmlquery --value COMPILER`" ]; then
+  if grep -q '^ *min_difference *=' user_nl_cam; then
+    sed -i "s/^\( *min_difference *=\).*/\1 $tol/" user_nl_cam
+  else
+    echo "min_difference = $tol" >> user_nl_cam
+  fi
+fi

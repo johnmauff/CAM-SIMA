@@ -1,0 +1,2 @@
+! set analytic ICs (as cam/outfrq_analy_ic_cam4)
+analytic_ic_type=held_suarez_1994

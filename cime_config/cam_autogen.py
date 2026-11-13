@@ -18,6 +18,11 @@ import logging
 import shutil
 import filecmp
 import glob
+import re
+import subprocess
+import hashlib
+import shlex
+import xml.etree.ElementTree as _ET
 
 #pylint: disable=wrong-import-position
 
@@ -33,6 +38,10 @@ sys.path.append(_REG_GEN_DIR)
 # Import needed registry and other src/data scripts:
 from generate_registry_data import gen_registry
 from write_init_files import write_init_files
+from resolved_var_capgen import Capgenv1ResolvedVars
+# resolved_var_xdsl_ccpp.py isn't imported here -- it pulls in xdsl_ccpp,
+# an optional dependency capgen builds must not require. Imported lazily
+# in generate_init_routines() only when xdsl_ccpp is actually selected.
 
 ###############################################################################
 
@@ -259,6 +268,144 @@ def _find_schemes_in_sdf(suite_part):
     return scheme_list
 
 ###############################################################################
+def _find_suite_file(suite_name, search_dirs):
+###############################################################################
+    """
+    Find the definition file for physics suite <suite_name>, searching
+    <search_dirs> in order: a Python suite (suite_<suite_name>.py, which
+    requires CCPP_GENERATOR=xdsl_ccpp) or an SDF (suite_<suite_name>.xml).
+    Within one directory a Python suite takes precedence.
+    Return the full path of the first match, or None.
+
+    doctests:
+
+    1.  Check that the function returns None if it can't find a suite:
+    >>> _find_suite_file("banana", [_CAM_ROOT_DIR]) is None
+    True
+
+    """
+    for sdir in search_dirs:
+        for suffix in (".py", ".xml"):
+            test_path = os.path.join(sdir, f"suite_{suite_name}{suffix}")
+            if os.path.exists(test_path):
+                return test_path
+            # End if
+        # End for
+    # End for
+    return None
+
+###############################################################################
+def _python_suite_inputs(suite_path, library_dir=None):
+###############################################################################
+    """
+    Return the Python suite <suite_path> followed by the other Python modules
+    beside it and in subdirectories below it, and those under <library_dir>
+    (suites-py: the categories, parameterizations and packages suites
+    import), all of which are inputs whose changes require regenerating the
+    CCPP caps.  Other suites (suite_*.py) are not inputs.
+    """
+    dirs = [os.path.dirname(os.path.abspath(suite_path))]
+    if library_dir:
+        dirs.append(os.path.abspath(library_dir))
+    # End if
+    helpers = sorted({path for sdir in dirs
+                      for path in glob.glob(os.path.join(sdir, "**", "*.py"),
+                                            recursive=True)
+                      if not os.path.basename(path).startswith("suite_")})
+    return [suite_path] + helpers
+
+###############################################################################
+def _python_suite_env(library_dir):
+###############################################################################
+    """
+    Return the environment for running a Python suite: this process's, with
+    <library_dir> (suites-py) first on PYTHONPATH, so that a suite outside
+    it (e.g. in test/test_suites-py) can import its modules.
+    """
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(path for path in
+                                        (library_dir, env.get("PYTHONPATH")) if path)
+    return env
+
+###############################################################################
+def _resolve_xdsl_python(genccpp_dir, case_python=""):
+###############################################################################
+    """
+    Return the Python interpreter used to run xdsl_ccpp: $XDSL_CCPP_PYTHON,
+    else <case_python> (the case's XDSL_CCPP_PYTHON, in env_build.xml),
+    else the value cached in <genccpp_dir> by the last cap generation, else
+    the interpreter running this script. Raise CamAutoGenError if that
+    interpreter cannot import xdsl_ccpp, naming where the value came from,
+    rather than failing later inside the cap generation.
+    """
+    xdsl_python_cache = os.path.join(genccpp_dir, ".xdsl_ccpp_python")
+    xdsl_python = os.environ.get("XDSL_CCPP_PYTHON", "")
+    source = "the XDSL_CCPP_PYTHON environment variable"
+    if not xdsl_python and case_python:
+        xdsl_python = case_python
+        source = "the case's XDSL_CCPP_PYTHON (env_build.xml)"
+    # End if
+    if not xdsl_python and os.path.isfile(xdsl_python_cache):
+        with open(xdsl_python_cache) as cache_file:
+            xdsl_python = cache_file.read().strip()
+        # End with
+        source = f"the cache file {xdsl_python_cache}"
+    # End if
+    if not xdsl_python:
+        xdsl_python = sys.executable
+        source = "the Python running the build (XDSL_CCPP_PYTHON is not set)"
+    # End if
+    probe = ("import importlib.util, sys; "
+             "sys.exit(importlib.util.find_spec('xdsl_ccpp') is None)")
+    try:
+        found = subprocess.run([xdsl_python, "-c", probe],
+                               check=False, capture_output=True).returncode == 0
+    except OSError:
+        found = False
+    # End try
+    if not found:
+        raise CamAutoGenError(
+            f"ERROR: CCPP_GENERATOR=xdsl_ccpp, but the Python interpreter "
+            f"'{xdsl_python}' (from {source}) cannot import xdsl_ccpp. Set "
+            f"the case's XDSL_CCPP_PYTHON to a Python with xdsl_ccpp "
+            f"installed, e.g. "
+            f"./xmlchange XDSL_CCPP_PYTHON=/path/to/venv/bin/python")
+    # End if
+    return xdsl_python
+
+# One scheme call in a Python suite's IR, e.g.
+#   "ccpp.scheme"() <{scheme_name = "rrtmgp_pre"}> : () -> ()
+_PY_SUITE_SCHEME_RE = re.compile(r'"ccpp\.scheme"\(\)\s*<\{scheme_name = "(\w+)"')
+
+###############################################################################
+def _find_schemes_in_py_suite(suite_path, python_exe, library_dir=None):
+###############################################################################
+    """
+    Run the Python suite <suite_path> with <python_exe> (an interpreter that
+    can import xdsl_ccpp), with <library_dir> on its import path (see
+    _python_suite_env), and return the names of the schemes it calls, in
+    call order without duplicates: the Python-suite counterpart of
+    _find_schemes_in_sdf. The suite names its schemes without their
+    metadata, so this needs no scheme files; the names are read from the
+    suite IR it prints.
+    """
+    result = subprocess.run([python_exe, suite_path, "--legacy-mode"],
+                            capture_output=True, text=True, check=False,
+                            env=_python_suite_env(library_dir))
+    if result.returncode != 0:
+        emsg = "ERROR: Unable to run Python suite '{}':\n{}"
+        raise CamAutoGenError(emsg.format(suite_path, result.stderr))
+    # End if
+    scheme_list = []
+    for line in result.stdout.splitlines():
+        match = _PY_SUITE_SCHEME_RE.search(line)
+        if match and (match.group(1) not in scheme_list):
+            scheme_list.append(match.group(1))
+        # End if
+    # End for
+    return scheme_list
+
+###############################################################################
 def _find_metadata_files(source_dirs, scheme_finder):
 ###############################################################################
     """
@@ -359,7 +506,7 @@ def _update_genccpp_dir(utility_files, genccpp_dir):
     # end for
 
 ###############################################################################
-def _set_rrtmgp_dependencies(dependency_files, gpu_flag):
+def _set_rrtmgp_dependencies(dependency_files, gpu_flag, rrtmgp_kernels="auto"):
 ###############################################################################
     """
     Modify the list of files that physics schemes depend on
@@ -368,6 +515,11 @@ def _set_rrtmgp_dependencies(dependency_files, gpu_flag):
 
     This function returns a modified list with either the
     CPU or GPU RRTMGP dependencies, but not both.
+
+    <rrtmgp_kernels> (case variable RRTMGP_KERNELS): "auto" picks the GPU
+    ("accel") kernels for a GPU build and the CPU kernels otherwise; "accel"
+    picks the GPU kernels for a CPU build too, so CPU and GPU builds run the
+    same algorithm (CPU/GPU bit-for-bit verification).
 
     >>> in_files = ['/some/path/file.F90','/some/rte-kernels/rrtmgp.F90', \
                     '/some/rte-kernels/accel/rrtmgp.F90', \
@@ -382,6 +534,12 @@ def _set_rrtmgp_dependencies(dependency_files, gpu_flag):
 '/some/other/path/file.F90', '/other/rrtmgp-kernels/mo_gas_optics_rrtmgp_kernels.F90']
 
     >>> _set_rrtmgp_dependencies(in_files, True)
+    ['/some/path/file.F90', '/some/rte-kernels/rrtmgp.F90', \
+'/some/rte-kernels/accel/rrtmgp.F90', \
+'/some/rte-kernels/accel/mo_rte_solver_kernels.F90', '/some/other/path/file.F90', \
+'/other/rrtmgp-kernels/accel/mo_gas_optics_rrtmgp_kernels.F90']
+
+    >>> _set_rrtmgp_dependencies(in_files, False, "accel")
     ['/some/path/file.F90', '/some/rte-kernels/rrtmgp.F90', \
 '/some/rte-kernels/accel/rrtmgp.F90', \
 '/some/rte-kernels/accel/mo_rte_solver_kernels.F90', '/some/other/path/file.F90', \
@@ -401,14 +559,18 @@ def _set_rrtmgp_dependencies(dependency_files, gpu_flag):
                     'mo_gas_optics_rrtmgp_kernels.F90']
 
 
+    # The GPU ("accel") kernels for a GPU build, or for any build when
+    # RRTMGP_KERNELS=accel (same algorithm on CPU and GPU):
+    use_accel = gpu_flag or rrtmgp_kernels == "accel"
+
     for file_path in dependency_files:
         if any(subdir in file_path for subdir in rrtmgp_subdirs):
             if any(rfile in file_path for rfile in rrtmgp_files):
-                if (gpu_flag and 'accel' in file_path):
-                    #If GPU-enabled and is "accelerated", include it:
+                if (use_accel and 'accel' in file_path):
+                    #If GPU kernels are wanted and is "accelerated", include it:
                     new_dependency_files.append(file_path)
-                elif (not gpu_flag and 'accel' not in file_path):
-                    #If CPU-only and not "accelerated", include it:
+                elif (not use_accel and 'accel' not in file_path):
+                    #If CPU kernels are wanted and not "accelerated", include it:
                     new_dependency_files.append(file_path)
             else:
                 #Not a hardware-dependent file, so include it:
@@ -484,10 +646,179 @@ def generate_registry(data_search, build_cache, atm_root, bldroot,
     return genreg_dir, do_gen_registry, reg_file_paths, ic_names, registry_constituents, vars_init_value
 
 ###############################################################################
+def _xdsl_capture_settings(genccpp_dir, case_values=None):
+###############################################################################
+    """
+    The scheme I/O capture settings of an xdsl_ccpp build:
+    (scheme_spec, driver_dir), each "" when unset. Each comes from its
+    environment variable (XDSL_CCPP_CAPTURE_SCHEME,
+    XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR), else from the case variable of
+    the same name (env_build.xml; <case_values> is their pair of values,
+    None for a case created before those variables existed), else --
+    only for such an older case -- from its cache file in genccpp_dir.
+    In a case that has the variables they are the whole configuration:
+    an empty value means no capture, whatever an old cache file says,
+    and a clean build directory loses nothing. The cache files are
+    still written (by the caller) for older cases, where a value
+    exported in an interactive shell before case.submit does not
+    reliably reach the PBS batch job. scheme_spec is a SCHEME[:PHASE]
+    entry or the path of a file listing them, one per line; a relative
+    file path is made absolute against the current directory.
+    """
+    values = []
+    if case_values is None:
+        case_values = (None, None)
+    # end if
+    for (env_var, cache_name), case_value in zip((
+            ("XDSL_CCPP_CAPTURE_SCHEME", ".xdsl_ccpp_capture_scheme"),
+            ("XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR",
+             ".xdsl_ccpp_capture_test_driver_dir")), case_values):
+        value = os.environ.get(env_var, "")
+        if not value and case_value is not None:
+            values.append(case_value.strip())
+            continue
+        # end if
+        cache_file = os.path.join(genccpp_dir, cache_name)
+        if not value and os.path.isfile(cache_file):
+            with open(cache_file) as cfile:
+                value = cfile.read().strip()
+            # end with
+        # end if
+        values.append(value)
+    # end for
+    scheme_spec, driver_dir = values
+    if scheme_spec and os.path.isfile(scheme_spec):
+        scheme_spec = os.path.abspath(scheme_spec)
+    # end if
+    return scheme_spec, driver_dir
+
+###############################################################################
+def _xdsl_capture_fingerprint(scheme_spec, driver_dir, case_name):
+###############################################################################
+    """
+    A short hash of everything that shapes the capture code (the scheme
+    entry or the contents of a scheme list file, the driver directory and
+    the case name), so the build cache regenerates when any of it changes.
+    """
+    digest = hashlib.sha1()
+    digest.update(f"{scheme_spec}\n{driver_dir}\n{case_name}\n".encode())
+    if os.path.isfile(scheme_spec):
+        with open(scheme_spec, "rb") as sfile:
+            digest.update(sfile.read())
+        # end with
+    # end if
+    return digest.hexdigest()[:12]
+
+###############################################################################
+# Compile flags for the xdsl_ccpp capture replay build: the flags this build
+# compiled each Fortran source with, written to capture_compile_flags.txt in
+# the capture driver directory (format: xdsl_ccpp.tools.capture_cmake). A
+# replay matches the captured run bit for bit only when it compiles every
+# file the same way. The replay build sets these itself, so they are left
+# out: include and module directories, preprocessor definitions, the output
+# file and the accelerator flags (CPU or GPU replay).
+_CAPTURE_FLAGS_FILE = "capture_compile_flags.txt"
+_CAPTURE_FLAGS_RECORD = ".xdsl_ccpp_compile_flags"
+_FORTRAN_SUFFIXES = (".F90", ".f90", ".F", ".f")
+_DROP_FLAG_WITH_VALUE = frozenset({"-o", "-I", "-module", "-J", "-D", "-U"})
+_DROP_FLAG_PREFIXES = ("-I", "-J", "-D", "-U", "-acc=", "-gpu=")
+_DROP_FLAGS = frozenset({"-c", "-acc", "-noacc", "-mp=gpu"})
+
+###############################################################################
+def _compile_command_flags(line):
+###############################################################################
+    """
+    (source file name, flags) of a Fortran compile command in make's
+    output, or None when <line> is not one.
+    """
+    try:
+        tokens = shlex.split(line)
+    except ValueError:
+        return None
+    # end try
+    if "-c" not in tokens:
+        return None
+    # end if
+    sources = [tok for tok in tokens[1:]
+               if tok.endswith(_FORTRAN_SUFFIXES) and not tok.startswith("-")]
+    if len(sources) != 1:
+        return None
+    # end if
+    flags = []
+    skip_value = False
+    for tok in tokens[1:]:
+        if skip_value:
+            skip_value = False
+        elif tok in _DROP_FLAG_WITH_VALUE:
+            skip_value = True
+        elif not (tok == sources[0] or tok in _DROP_FLAGS
+                  or tok.startswith(_DROP_FLAG_PREFIXES)):
+            flags.append(tok)
+        # end if
+    # end for
+    return os.path.basename(sources[0]), flags
+
+###############################################################################
+def write_capture_compile_flags(make_output, genccpp_dir, driver_dir):
+###############################################################################
+    """
+    After a successful atm build with scheme I/O capture: record the flags
+    of the Fortran compile commands in <make_output> (merged into the
+    record in <genccpp_dir>, since an incremental build compiles only some
+    files) and write the record as <driver_dir>/capture_compile_flags.txt,
+    with the most common flags as the default ("*") line. Returns the path
+    written, or None when no compile flags are known.
+    """
+    record_path = os.path.join(genccpp_dir, _CAPTURE_FLAGS_RECORD)
+    record = {}
+    if os.path.isfile(record_path):
+        with open(record_path, encoding='utf-8') as rfile:
+            for line in rfile:
+                words = line.split()
+                if words and not words[0].startswith("#"):
+                    record[words[0]] = words[1:]
+                # end if
+            # end for
+        # end with
+    # end if
+    for line in make_output.splitlines():
+        parsed = _compile_command_flags(line)
+        if parsed is not None:
+            record[parsed[0]] = parsed[1]
+        # end if
+    # end for
+    record.pop("*", None)
+    if not record:
+        return None
+    # end if
+    counts = {}
+    for flags in record.values():
+        counts[tuple(flags)] = counts.get(tuple(flags), 0) + 1
+    # end for
+    default = max(counts, key=counts.get)
+    lines = ["# Written by CAM-SIMA's buildlib: the flags each Fortran source was",
+             "# compiled with in this case (* for the others), for the xdsl_ccpp",
+             "# capture replay build.",
+             " ".join(["*"] + list(default))]
+    lines += [" ".join([name] + record[name]) for name in sorted(record)]
+    text = "\n".join(lines) + "\n"
+    with open(record_path, "w", encoding='utf-8') as rfile:
+        rfile.write(text)
+    # end with
+    out_path = os.path.join(driver_dir, _CAPTURE_FLAGS_FILE)
+    with open(out_path, "w", encoding='utf-8') as ofile:
+        ofile.write(text)
+    # end with
+    return out_path
+
+###############################################################################
 def generate_physics_suites(build_cache, preproc_defs, host_name,
                             phys_suites_str, atm_root, bldroot,
                             reg_dir, reg_files, source_mods_dir,
-                            gpu_flag, force):
+                            gpu_flag, force, ccpp_generator="capgen",
+                            package_caps=False, suite_dir="", jobs=1,
+                            case_name="", xdsl_python="",
+                            capture_case_values=None, rrtmgp_kernels="auto"):
 ###############################################################################
     """
     Generate the source for the configured physics suites,
@@ -497,7 +828,55 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
        - A flag set to True if the CCPP framework was run
        - The pathname of the CCPP Framework database
        - A list of CCPP namelist groups to add to atm_in
+
+    <ccpp_generator> is 'capgen' (default) or 'xdsl_ccpp'; the fifth
+    return value's type depends on it (CCPPDatabaseObj vs. a JSON path),
+    so callers must pass <ccpp_generator> through rather than infer it.
+
+    <package_caps> (xdsl_ccpp only) passes --package-caps: one Fortran
+    module per package of a Python suite. It is recorded with the generator
+    in the build cache, so changing it regenerates the caps.
+
+    <suite_dir> (CCPP_SUITE_DIR), when set, is the only directory searched
+    for the suite definitions -- relative to src/physics/ncar_ccpp, or
+    absolute (e.g. 'suites-py' for the Python suites, 'test/test_suites-py'
+    for the Python test suites). Empty: SourceMods, then suites, then
+    test/test_suites. A Python suite can import the modules in suites-py
+    wherever it is.
+
+    <jobs> (xdsl_ccpp only; the case's GMAKE_J) is passed as --jobs: the
+    number of processes xdsl_ccpp uses to check the schemes' Fortran
+    against their metadata, most of its run time. It does not change the
+    generated caps, so it is not recorded in the build cache.
+
+    <case_name> (xdsl_ccpp scheme I/O capture only; the case's CASE) is
+    passed as --capture-label when a capture is configured: it is written
+    into every capture file and names the data directory under the test
+    driver directory.
+
+    <xdsl_python> (xdsl_ccpp only; the case's XDSL_CCPP_PYTHON) is the
+    interpreter with xdsl_ccpp installed; see _resolve_xdsl_python.
+
+    <capture_case_values> (xdsl_ccpp only) is the case's
+    (XDSL_CCPP_CAPTURE_SCHEME, XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR), or None
+    for a case without those variables; see _xdsl_capture_settings.
     """
+    if package_caps and ccpp_generator != "xdsl_ccpp":
+        raise CamAutoGenError("ERROR: CCPP_PACKAGE_CAPS=TRUE requires "
+                              f"CCPP_GENERATOR=xdsl_ccpp (got '{ccpp_generator}')")
+    # end if
+    cache_generator = ccpp_generator + ("+package_caps" if package_caps else "")
+    # Scheme I/O capture (xdsl_ccpp only, opt-in): part of the cached
+    # generator, so a changed capture configuration regenerates the caps.
+    capture_scheme, capture_driver_dir = "", ""
+    if ccpp_generator == "xdsl_ccpp":
+        capture_scheme, capture_driver_dir = _xdsl_capture_settings(
+            os.path.join(bldroot, "ccpp"), capture_case_values)
+        if capture_scheme:
+            cache_generator += "+capture:" + _xdsl_capture_fingerprint(
+                capture_scheme, capture_driver_dir, case_name)
+        # end if
+    # end if
 
     # Physics source gets copied into blddir
     physics_blddir = os.path.join(bldroot, "ccpp_physics")
@@ -509,20 +888,32 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     # Collect all possible Suite Definition File (SDF) locations
     atm_suites_path      = os.path.join(atm_phys_top_dir, "suites")
     atm_test_suites_path = os.path.join(atm_phys_top_dir, "test", "test_suites")
+    py_suite_library     = os.path.join(atm_phys_top_dir, "suites-py")
     suite_search         = [source_mods_dir, atm_suites_path, atm_test_suites_path]
+    if suite_dir:
+        suite_search = [os.path.join(atm_phys_top_dir, suite_dir)]
+        if not os.path.isdir(suite_search[0]):
+            raise CamAutoGenError(f"ERROR: CCPP_SUITE_DIR '{suite_dir}' is not a "
+                                  f"directory ({suite_search[0]})")
+        # end if
+    # end if
     # Find all scheme metadata files, organized by scheme name
     atm_schemes_path = os.path.join(atm_phys_top_dir, "schemes")
     atm_test_schemes_path = os.path.join(atm_phys_top_dir, "test", "test_schemes")
     source_search    = [source_mods_dir, atm_schemes_path, atm_test_schemes_path]
     all_scheme_files = _find_metadata_files(source_search, find_scheme_names)
 
-    # Find the SDFs specified for this model build
+    genccpp_dir = os.path.join(bldroot, "ccpp")
+
+    # Find the suite files (SDFs, or a Python suite) specified for this build
     sdfs = []
+    py_suite = None    # A Python suite script, if this build uses one
+    suite_inputs = []  # Suite files plus Python suite helper modules
     scheme_files = []
     scheme_names = set()
     xml_files = {} # key is scheme, value is xml file path
     for sdf in phys_suites_str.split(';'):
-        sdf_path = _find_file(f"suite_{sdf}.xml", suite_search)
+        sdf_path = _find_suite_file(sdf, suite_search)
         if not sdf_path:
             emsg = f"ERROR: Unable to find SDF for suite '{sdf}'"
             raise CamAutoGenError(emsg)
@@ -532,9 +923,25 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
           _LOGGER.info("Using non-standard test suite: %s", sdf)
         # End if
         sdfs.append(sdf_path)
-        # Given an SDF, find all the schemes it calls
-        _, suite = read_xml_file(sdf_path)
-        sdf_schemes = _find_schemes_in_sdf(suite)
+        if sdf_path.endswith(".py"):
+            # A Python suite (xdsl_ccpp's Python frontend); its schemes are
+            # found by running it.
+            if ccpp_generator != "xdsl_ccpp":
+                emsg = ("ERROR: Python suite '{}' requires "
+                        "CCPP_GENERATOR=xdsl_ccpp (got '{}')")
+                raise CamAutoGenError(emsg.format(sdf_path, ccpp_generator))
+            # End if
+            py_suite = sdf_path
+            suite_inputs.extend(_python_suite_inputs(sdf_path, py_suite_library))
+            sdf_schemes = _find_schemes_in_py_suite(
+                sdf_path, _resolve_xdsl_python(genccpp_dir, xdsl_python),
+                py_suite_library)
+        else:
+            suite_inputs.append(sdf_path)
+            # Given an SDF, find all the schemes it calls
+            _, suite = read_xml_file(sdf_path)
+            sdf_schemes = _find_schemes_in_sdf(suite)
+        # End if
         #Add schemes to set of all scheme names:
         scheme_names.update(sdf_schemes)
         # For each scheme, find its metadata file
@@ -556,8 +963,13 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             # End if
         # End for
     # End for
+    if py_suite and (len(sdfs) > 1):
+        # xdsl_ccpp's --py takes a single suite script
+        emsg = ("ERROR: A Python suite ('{}') must be the only physics "
+                "suite in the build; got {}")
+        raise CamAutoGenError(emsg.format(py_suite, ', '.join(sdfs)))
+    # End if
     # Figure out if we need to generate new physics code
-    genccpp_dir = os.path.join(bldroot, "ccpp")
     kind_phys = ['kind_phys = REAL64']
     kind_types = kind_phys
 
@@ -581,10 +993,11 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     do_gen_nl = False
 
     if os.path.exists(genccpp_dir):
-        do_gen_ccpp = force or build_cache.ccpp_mismatch(sdfs, scheme_files,
+        do_gen_ccpp = force or build_cache.ccpp_mismatch(suite_inputs, scheme_files,
                                                          host_files,
                                                          preproc_cache_str,
-                                                         kind_phys)
+                                                         kind_phys,
+                                                         cache_generator)
     else:
         os.makedirs(genccpp_dir)
         do_gen_ccpp = True
@@ -624,6 +1037,11 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
         scheme_nl_meta_files = build_cache.scheme_nl_metadata()
         nl_groups = build_cache.scheme_nl_groups()
     # end if
+    # Cache the host files as ccpp_mismatch saw them above, without the
+    # namelist meta files: the cache tracks those separately
+    # (scheme_nl_meta_files, xml_nl_mismatch), and caching them here made
+    # every later ccpp_mismatch call report a change and regenerate.
+    cache_host_files = list(host_files)
     #Add the namelist meta files to the host files list
     #if present:
     if scheme_nl_meta_files:
@@ -631,11 +1049,8 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     # end if (no else)
 
     if do_gen_ccpp:
-        gen_docfiles = False
-        use_error_obj = False
-
         # print extra info to bldlog if DEBUG is TRUE
-        _LOGGER.debug("Calling capgen: ")
+        _LOGGER.debug("Calling %s: ", ccpp_generator)
         _LOGGER.debug("   host files: %s", ", ".join(host_files))
         _LOGGER.debug("   scheme files: %s", ', '.join(scheme_files))
         _LOGGER.debug("   suite definition files: %s", ', '.join(sdfs))
@@ -647,17 +1062,137 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             _LOGGER.debug("   %s: '%s'", name, ktype)
         # end for
 
-        # generate CCPP caps
-        run_env = CCPPFrameworkEnv(_LOGGER, host_files=host_files,
-                                   scheme_files=scheme_files, suites=sdfs,
-                                   preproc_directives=preproc_defs,
-                                   generate_docfiles=gen_docfiles,
-                                   host_name=host_name, kind_types=kind_types,
-                                   use_error_obj=use_error_obj,
-                                   force_overwrite=False,
-                                   output_root=genccpp_dir,
-                                   ccpp_datafile=cap_output_file)
-        capgen_db = capgen(run_env, return_db=True)
+        if ccpp_generator == "xdsl_ccpp":
+            # Subprocess, not in-process: ccpp_dsl.py's error paths call
+            # sys.exit() directly, which would otherwise kill this build.
+            #
+            # preproc_defs (CAM_CPPDEFS) -> xdsl_ccpp's --preproc-defs. As
+            # for capgen, they only resolve #ifdef blocks in the schemes'
+            # Fortran source when xdsl_ccpp checks it against the .meta
+            # files; they do not change the generated caps. The check is
+            # warn-only for now, pending a full sweep of CAM-SIMA's scheme
+            # tree, so this never raises here.
+            resolved_vars_json = os.path.join(genccpp_dir, "resolved_vars.json")
+            # The interpreter with xdsl_ccpp installed: $XDSL_CCPP_PYTHON,
+            # the case's XDSL_CCPP_PYTHON, or the value cached below by the
+            # last cap generation (see _resolve_xdsl_python, which stops the
+            # build if it cannot import xdsl_ccpp).
+            _xdsl_python_cache = os.path.join(genccpp_dir, ".xdsl_ccpp_python")
+            _xdsl_python = _resolve_xdsl_python(genccpp_dir, xdsl_python)
+            # Persist so run-phase invocations can find it without the env var.
+            with open(_xdsl_python_cache, "w") as _f:
+                _f.write(_xdsl_python)
+            if py_suite:
+                suite_args = ["--py", py_suite]
+            else:
+                suite_args = ["--suites", ",".join(sdfs)]
+            # end if
+            cmd = [
+                _xdsl_python, "-m", "xdsl_ccpp.tools.ccpp_dsl",
+                "--host-files", ",".join(host_files),
+                "--scheme-files", ",".join(scheme_files),
+                *suite_args,
+                "--host-name", host_name,
+                "-o", genccpp_dir,
+                "--tempdir", os.path.join(genccpp_dir, "tmp"),
+                "--emit-datatable", cap_output_file,
+                "--emit-resolved-vars", resolved_vars_json,
+                # CAM-SIMA's .meta files use the legacy horizontal_loop_extent
+                # convention.
+                "--legacy-mode",
+                # One summary line per deprecated standard name; --verbose 2
+                # would list every argument using it, by .meta file.
+                "--verbose", "1",
+                # Generates cam_ccpp_physics_* lifecycle wrappers for phys_comp.F90.
+                "--cam-host",
+                "--framework-src-dir",
+                os.path.join(_CAM_ROOT_DIR, "ccpp_framework", "src"),
+                # r8 = selected_real_kind(12,100) = REAL64 on all supported compilers.
+                "--kind-map", "r8:REAL64",
+            ]
+            if preproc_defs:
+                # Single token: values start with '-D', which argparse would
+                # otherwise mistake for a new flag if passed as two args.
+                cmd += ["--preproc-defs=" + ",".join(preproc_defs)]
+            # end if
+            if package_caps:
+                cmd += ["--package-caps"]
+            # end if
+            if jobs > 1:
+                cmd += ["--jobs", str(jobs)]
+            # end if
+            # Opt-in scheme I/O capture (xdsl-ccpp backlog item
+            # scheme-io-capture): never on by default, no effect on a
+            # normal build. Settings from _xdsl_capture_settings, above;
+            # the values used are persisted to their cache files.
+            _xdsl_capture_scheme_cache = os.path.join(
+                genccpp_dir, ".xdsl_ccpp_capture_scheme")
+            _xdsl_capture_scheme = capture_scheme
+            _xdsl_capture_driver_dir_cache = os.path.join(
+                genccpp_dir, ".xdsl_ccpp_capture_test_driver_dir")
+            _xdsl_capture_driver_dir = capture_driver_dir
+            if _xdsl_capture_scheme:
+                with open(_xdsl_capture_scheme_cache, "w") as _f:
+                    _f.write(_xdsl_capture_scheme)
+                cmd += ["--capture-scheme", _xdsl_capture_scheme]
+                if _xdsl_capture_driver_dir:
+                    with open(_xdsl_capture_driver_dir_cache, "w") as _f:
+                        _f.write(_xdsl_capture_driver_dir)
+                    if not os.path.isdir(_xdsl_capture_driver_dir):
+                        os.makedirs(_xdsl_capture_driver_dir)
+                    # end if
+                    cmd += ["--capture-test-driver-dir", _xdsl_capture_driver_dir]
+                    # CESM share code (shr_kind_mod, shr_spfn_mod, ...), for
+                    # the modules the captured schemes use that are not in
+                    # the physics repository.
+                    _share_src = os.path.join(atm_root, "share", "src")
+                    if os.path.isdir(_share_src):
+                        cmd += ["--capture-source-root", _share_src]
+                    # end if
+                # end if
+                if case_name:
+                    # Written into every capture file; with a driver
+                    # directory, the data goes to <driver dir>/<case_name>.
+                    cmd += ["--capture-label", case_name]
+                # end if
+            # end if
+            if gpu_flag:
+                # OpenACC directives for memory_space=device scheme args.
+                cmd += ["--directive", "acc"]
+                # cmd += ["--gpu-debug-prints"]  # per-op host/device diagnostic prints
+                # cmd += ["--gpu-debug-sync"]  # forces a device-vs-host sync after each write
+            # end if
+            result = subprocess.run(cmd, capture_output=True, text=True,
+                                    check=False,
+                                    env=_python_suite_env(py_suite_library))
+            # Prefix each line so xdsl_ccpp's messages stand out in the build
+            # output, and report them once: in the error if generation
+            # failed, otherwise in the log.
+            xdsl_msgs = "".join(f"xDSL-ccpp: {line}\n"
+                                for line in result.stderr.splitlines())
+            if result.returncode != 0:
+                emsg = "ERROR: xdsl_ccpp cap generation failed:\n{}"
+                raise CamAutoGenError(emsg.format(xdsl_msgs))
+            # end if
+            if xdsl_msgs:
+                _LOGGER.info("%s", xdsl_msgs.rstrip("\n"))
+            # end if
+            capgen_db = resolved_vars_json
+        else:
+            gen_docfiles = False
+            use_error_obj = False
+            # generate CCPP caps
+            run_env = CCPPFrameworkEnv(_LOGGER, host_files=host_files,
+                                       scheme_files=scheme_files, suites=sdfs,
+                                       preproc_directives=preproc_defs,
+                                       generate_docfiles=gen_docfiles,
+                                       host_name=host_name, kind_types=kind_types,
+                                       use_error_obj=use_error_obj,
+                                       force_overwrite=False,
+                                       output_root=genccpp_dir,
+                                       ccpp_datafile=cap_output_file)
+            capgen_db = capgen(run_env, return_db=True)
+        # end if
     else:
         capgen_db = None
     # end if
@@ -728,26 +1263,29 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
 
     if do_gen_ccpp or do_gen_nl:
         # save build details in the build cache
-        build_cache.update_ccpp(sdfs, scheme_files, host_files, xml_files,
-                                scheme_nl_meta_files, nl_groups, create_nl_file,
-                                preproc_cache_str, kind_types)
+        build_cache.update_ccpp(suite_inputs, scheme_files, cache_host_files,
+                                xml_files, scheme_nl_meta_files, nl_groups,
+                                create_nl_file, preproc_cache_str, kind_types,
+                                cache_generator)
         request = DatatableReport("utility_files")
         ufiles_str = datatable_report(cap_output_file, request, ";")
-        utility_files = ufiles_str.split(';')
+        utility_files = [f for f in ufiles_str.split(';') if f]
         _update_genccpp_dir(utility_files, genccpp_dir)
         request = DatatableReport("dependencies")
         dep_str = datatable_report(cap_output_file, request, ";")
         if len(dep_str) > 0:
-            dependency_files = dep_str.split(';')
+            dependency_files = [f for f in dep_str.split(';') if f]
             # If using RRTMGP in the physics suite, then modify
             # the provided dependency files list to use the correct
             # CPU or GPU RRTMGP dependencies:
             if any("rrtmgp_" in scheme_name for scheme_name in scheme_names):
                 dependency_files = _set_rrtmgp_dependencies(dependency_files,
-                                                            gpu_flag)
+                                                            gpu_flag,
+                                                            rrtmgp_kernels)
 
             # Copy dependencies files into CCPP build directory
             _update_genccpp_dir(dependency_files, genccpp_dir)
+        # end if
     # End if
 
     return [physics_blddir, genccpp_dir], do_gen_ccpp, cap_output_file,       \
@@ -757,7 +1295,8 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
 def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
                            source_mods_dir, gen_fort_indent,
                            cap_database, ic_names, registry_constituents,
-                           vars_init_value):
+                           vars_init_value, ccpp_generator="capgen",
+                           xdsl_python=""):
 ###############################################################################
     """
     Generate the host model initialization source code files
@@ -765,6 +1304,10 @@ def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
     both the registry and the CCPP physics suites if required
     (new case or changes to registry or CCPP source(s), meta-data,
     and/or script).
+
+    <ccpp_generator> ('capgen' or 'xdsl_ccpp') selects which ResolvedVar
+    adapter wraps <cap_database> (a CCPPDatabaseObj vs. a JSON path).
+    <xdsl_python> is the case's XDSL_CCPP_PYTHON (see _resolve_xdsl_python).
     """
 
     # Add new directory to build path:
@@ -795,7 +1338,52 @@ def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
         #   within write_init_files (so that write_init_files can be the place
         #   where the source include files are stored).
         source_paths = [source_mods_dir, _REG_GEN_DIR]
-        retmsg = write_init_files(cap_database, ic_names, registry_constituents, vars_init_value,
+        # write_init_files() consumes a backend-neutral ResolvedVar adapter
+        # (see resolved_var.py), not a raw CCPPDatabaseObj.
+        if ccpp_generator == "xdsl_ccpp":
+            # Deferred import (see note at top of file); _REG_GEN_DIR was
+            # removed from sys.path after this file's own imports, so it's
+            # restored here just for this one.
+            #
+            # PBS jobs don't inherit the venv; ask the xdsl_ccpp interpreter
+            # (see _resolve_xdsl_python) for xdsl_ccpp's paths.
+            try:
+                import xdsl_ccpp as _xdsl_ccpp_probe  # noqa: F401
+                del _xdsl_ccpp_probe
+            except ImportError:
+                _xdsl_python = _resolve_xdsl_python(
+                    os.path.join(bldroot, "ccpp"), xdsl_python)
+                if _xdsl_python != sys.executable:
+                    import subprocess as _sp
+                    # Use __path__[0] instead of __file__ because editable
+                    # installs expose xdsl_ccpp as a namespace package with
+                    # __file__ = None; __path__[0] is always the real dir.
+                    _probe_script = (
+                        "import os, xdsl_ccpp, xdsl\n"
+                        "xc = list(xdsl_ccpp.__path__)[0]\n"
+                        "xx = list(xdsl.__path__)[0]\n"
+                        "print(os.path.dirname(xc))\n"
+                        "print(os.path.dirname(xx))\n"
+                    )
+                    _probe_out = _sp.check_output(
+                        [_xdsl_python, "-c", _probe_script], text=True
+                    ).strip().split("\n")
+                    for _p in _probe_out:
+                        if _p and _p not in sys.path:
+                            sys.path.insert(0, _p)
+                # end if
+            # end try
+            sys.path.append(_REG_GEN_DIR)
+            #pylint: disable=import-outside-toplevel
+            # Deliberately deferred (see comment above) -- not a style lapse.
+            from resolved_var_xdsl_ccpp import XdslCcppResolvedVars
+            #pylint: enable=import-outside-toplevel
+            sys.path.remove(_REG_GEN_DIR)
+            resolved_vars = XdslCcppResolvedVars(cap_database)
+        else:
+            resolved_vars = Capgenv1ResolvedVars(cap_database)
+        # end if
+        retmsg = write_init_files(resolved_vars, ic_names, registry_constituents, vars_init_value,
                                   init_dir, _find_file, source_paths,
                                   gen_fort_indent, _LOGGER)
 

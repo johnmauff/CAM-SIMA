@@ -10,124 +10,268 @@
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_kessler_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for Kessler physics</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_kessler_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU snapshot test for Kessler physics</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_held_suarez_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for Held-Suarez physics</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_held_suarez_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for Held-Suarez physics</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_tj2016_before_coupler_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for Moist Held-Suarez (TJ2016) physics (physics_before_coupler group)</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_tj2016_before_coupler_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for Moist Held-Suarez (TJ2016) physics (physics_before_coupler group)</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_tj2016_after_coupler_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for Moist Held-Suarez (TJ2016) physics (physics_after_coupler group)</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_tj2016_after_coupler_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for Moist Held-Suarez (TJ2016) physics (physics_after_coupler group)</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_zm_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for Zhang McFarlane deep convection scheme</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_zm_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for Zhang McFarlane deep convection scheme</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_mcsp_derecho">
     <machines>
       <!-- the MCSP test is ZM+MCSP, so it also provides Intel coverage for ZM. -->
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Snapshot test for Zhang McFarlane deep convection followed by MCSP</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_mcsp_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Snapshot test for Zhang McFarlane deep convection followed by MCSP</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_hack_shallow_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for Hack shallow convection scheme</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_hack_shallow_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for Hack shallow convection scheme</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_dme_adjust_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for dme_adjust scheme</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_dme_adjust_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for dme_adjust scheme</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_rk_stratiform_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for Rasch-Kristjansson microphysics scheme</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_rk_stratiform_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for Rasch-Kristjansson microphysics scheme</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_hb_vdiff_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for Holtslag-Boville boundary layer scheme and vertical diffusion</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_hb_vdiff_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for Holtslag-Boville boundary layer scheme and vertical diffusion</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_uw_vdiff_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for Bretherton-Park (UW) boundary layer scheme and vertical diffusion</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_uw_vdiff_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for Bretherton-Park (UW) boundary layer scheme and vertical diffusion</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_gw_cam4_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for orographic gravity wave scheme (CAM4)</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_gw_cam4_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for orographic gravity wave scheme (CAM4)</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_gw_cam7_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for moving mountain, deep convective, frontogenesis, beta ridge gravity wave scheme suite (CAM7)</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_gw_cam7_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for moving mountain, deep convective, frontogenesis, beta ridge gravity wave scheme suite (CAM7)</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_rrtmgp_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
@@ -136,7 +280,7 @@
   </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_rrtmgp_derecho_gpu">
     <machines>
-      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
@@ -146,28 +290,73 @@
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_beljaars_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for Beljaars orographic form drag</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_beljaars_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for Beljaars orographic form drag</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_D_Ln2" testmods="cam/outfrq_pumas_derecho">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
+      <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for PUMAS</option>
     </options>
   </test>
+  <!-- The CPU counterpart of the GPU test below (same build type, SMS not SMS_D),
+       so the two can be compared bit for bit -->
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_pumas_derecho">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">CPU reference for the PUMAS GPU test</option>
+    </options>
+  </test>
+  <!-- Not SMS_D: Depends.nvhpc gives the PUMAS sources -acc only when DEBUG=FALSE -->
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_pumas_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU snapshot test for PUMAS</option>
+    </options>
+  </test>
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_cloud_water_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for convective cloud water path for radiation</option>
+    </options>
+  </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_cloud_water_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for convective cloud water path for radiation</option>
     </options>
   </test>
 
@@ -175,6 +364,7 @@
   <test compset="FKESSLER" grid="mpasa480_mpasa480" name="SMS_Ln9" testmods="cam/outfrq_kessler_mpas_derecho">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -182,9 +372,19 @@
       <option name="comment">Test for MPAS dycore (with Kessler physics)</option>
     </options>
   </test>
+  <test compset="FKESSLER" grid="mpasa480_mpasa480" name="SMS_Ln9" testmods="cam/outfrq_kessler_mpas_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU test for MPAS dycore (with Kessler physics)</option>
+    </options>
+  </test>
   <test compset="FKESSLER" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -192,9 +392,19 @@
       <option name="comment">Test for SE-CSLAM dycore (with Kessler physics)</option>
     </options>
   </test>
+  <test compset="FKESSLER" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU test for SE-CSLAM dycore (with Kessler physics)</option>
+    </options>
+  </test>
   <test compset="FHS94" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -202,9 +412,19 @@
       <option name="comment">Test for SE-CSLAM dycore (with Held-Suarez physics)</option>
     </options>
   </test>
+  <test compset="FHS94" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for SE-CSLAM dycore (with Held-Suarez physics)</option>
+    </options>
+  </test>
   <test compset="FTJ16" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -212,9 +432,19 @@
       <option name="comment">Test for SE-CSLAM dycore (with TJ2016 [moist Held-Suarez] physics)</option>
     </options>
   </test>
+  <test compset="FTJ16" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for SE-CSLAM dycore (with TJ2016 [moist Held-Suarez] physics)</option>
+    </options>
+  </test>
   <test compset="FADIAB" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -222,11 +452,21 @@
       <option name="comment">Test for SE-CSLAM dycore with dry adiabatic settings (no physics forcings)</option>
     </options>
   </test>
+  <test compset="FADIAB" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for SE-CSLAM dycore with dry adiabatic settings (no physics forcings)</option>
+    </options>
+  </test>
 
   <!-- History output test -->
   <test compset="FKESSLER" grid="mpasa480_mpasa480" name="SMS_Ln9" testmods="cam/outfrq_kessler_mpas_derecho_history">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -234,15 +474,35 @@
       <option name="comment">Test for both instantaneous and accumulated output.</option>
     </options>
   </test>
+  <test compset="FKESSLER" grid="mpasa480_mpasa480" name="SMS_Ln9" testmods="cam/outfrq_kessler_mpas_derecho_history_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU test for both instantaneous and accumulated output.</option>
+    </options>
+  </test>
 
   <!-- Multiple history tape test -->
   <test compset="FKESSLER" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam_multitape">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
+      <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for SE-CSLAM dycore (with Kessler physics) with multiple history tapes</option>
+    </options>
+  </test>
+  <test compset="FKESSLER" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam_multitape_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU test for SE-CSLAM dycore (with Kessler physics) with multiple history tapes</option>
     </options>
   </test>
 
@@ -250,16 +510,29 @@
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_trcdata_bam_derecho">
     <machines>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:10:00</option>
       <option name="comment">Test for tracer_data chemistry and aerosols input utilities using prescribed ozone and BAM bulk aerosol input datasets</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_trcdata_bam_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for tracer_data chemistry and aerosols input utilities using prescribed ozone and BAM bulk aerosol input datasets</option>
+    </options>
+  </test>
 
   <!-- microp_aero BAM test -->
   <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_microp_aero_bam_derecho">
     <machines>
+      <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -267,11 +540,21 @@
       <option name="comment">Test for microp_aero with BAM bulk aerosols, including ndrop_bam, nucleate_ice, and inline logic in microp_aero</option>
     </options>
   </test>
+  <test compset="FPHYStest" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln2" testmods="cam/outfrq_microp_aero_bam_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Test for microp_aero with BAM bulk aerosols, including ndrop_bam, nucleate_ice, and inline logic in microp_aero</option>
+    </options>
+  </test>
 
   <!-- CAM7 physics tests -->
   <test compset="F2000_C7" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam_analy_ic">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -279,11 +562,21 @@
       <option name="comment">CAM7 test with SE-CSLAM dycore</option>
     </options>
   </test>
+  <test compset="F2000_C7" grid="ne3pg3_ne3pg3_mg37" name="SMS_Ln9" testmods="cam/outfrq_se_cslam_analy_ic_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:10:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: CAM7 test with SE-CSLAM dycore</option>
+    </options>
+  </test>
 
   <!-- CAM4 physics tests -->
   <test compset="QPC4" grid="mpasa120_mpasa120" name="SMS_Ln9" testmods="cam/outfrq_analy_ic_cam4">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -291,10 +584,20 @@
       <option name="comment">Aquaplanet CAM4 test with MPAS dycore at 120 km resolution</option>
     </options>
   </test>
+  <test compset="QPC4" grid="mpasa120_mpasa120" name="SMS_Ln9" testmods="cam/outfrq_analy_ic_cam4_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Aquaplanet CAM4 test with MPAS dycore at 120 km resolution</option>
+    </options>
+  </test>
 
   <test compset="QPC4" grid="mpasa120_mpasa120" name="SMS_D_Ln9" testmods="cam/outfrq_analy_ic_cam4">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -302,10 +605,20 @@
       <option name="comment">Aquaplanet CAM4 test with MPAS dycore at 120 km resolution in debug mode</option>
     </options>
   </test>
+  <test compset="QPC4" grid="mpasa120_mpasa120" name="SMS_D_Ln9" testmods="cam/outfrq_analy_ic_cam4_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Aquaplanet CAM4 test with MPAS dycore at 120 km resolution in debug mode</option>
+    </options>
+  </test>
 
   <test compset="QPC4" grid="ne3pg3_ne3pg3_mt233" name="SMS_Ln9" testmods="cam/outfrq_se_cam4">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -313,10 +626,20 @@
       <option name="comment">Aquaplanet CAM4 test with SE-CSLAM dycore at ne3 (ultra-low) resolution</option>
     </options>
   </test>
+  <test compset="QPC4" grid="ne3pg3_ne3pg3_mt233" name="SMS_Ln9" testmods="cam/outfrq_se_cam4_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Aquaplanet CAM4 test with SE-CSLAM dycore at ne3 (ultra-low) resolution</option>
+    </options>
+  </test>
 
   <test compset="QPC4" grid="ne3pg3_ne3pg3_mt233" name="SMS_D_Ln9" testmods="cam/outfrq_se_cam4">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -324,10 +647,20 @@
       <option name="comment">Aquaplanet CAM4 test with SE-CSLAM dycore at ne3 (ultra-low) resolution in debug mode</option>
     </options>
   </test>
+  <test compset="QPC4" grid="ne3pg3_ne3pg3_mt233" name="SMS_D_Ln9" testmods="cam/outfrq_se_cam4_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:20:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: Aquaplanet CAM4 test with SE-CSLAM dycore at ne3 (ultra-low) resolution in debug mode</option>
+    </options>
+  </test>
 
   <test compset="F1850_C4" grid="ne3pg3_ne3pg3_mt233" name="SMS_D_Ln9" testmods="cam/outfrq_se_cam4">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -337,10 +670,22 @@
       </option>
     </options>
   </test>
+  <test compset="F1850_C4" grid="ne3pg3_ne3pg3_mt233" name="SMS_D_Ln9" testmods="cam/outfrq_se_cam4_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:30:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: 
+        CAM4 test with SE-CSLAM dycore at ne3 (ultra-low) resolution with constant 1850 forcings in debug mode
+      </option>
+    </options>
+  </test>
 
   <test compset="F2000_C4" grid="ne3pg3_ne3pg3_mt233" name="SMS_D_Ln9" testmods="cam/outfrq_se_cam4">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
     </machines>
     <options>
@@ -350,11 +695,63 @@
       </option>
     </options>
   </test>
+  <test compset="F2000_C4" grid="ne3pg3_ne3pg3_mt233" name="SMS_D_Ln9" testmods="cam/outfrq_se_cam4_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:30:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: 
+        CAM4 test with SE-CSLAM dycore at ne3 (ultra-low) resolution with constant year 2000 forcings in debug mode
+      </option>
+    </options>
+  </test>
+
+  <!-- Performance tests (category sima_perf, not part of aux_sima): CAM4
+       aquaplanet at ~45,000 columns, 4 CPU nodes (512 ranks) vs one GPU node
+       (24 ranks, 6 per A100); compare ESMF_Profile.summary timers. -->
+  <test compset="QPC4" grid="mpasa120_mpasa120" name="SMS_Ld1" testmods="cam/perf_analy_ic_cam4_derecho">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="sima_perf"/>
+    </machines>
+    <options>
+      <option name="wallclock">01:00:00</option>
+      <option name="comment">CAM4 aquaplanet performance, MPAS 120 km, 512 CPU ranks (4 nodes)</option>
+    </options>
+  </test>
+  <test compset="QPC4" grid="mpasa120_mpasa120" name="SMS_Ld1" testmods="cam/perf_analy_ic_cam4_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="sima_perf"/>
+    </machines>
+    <options>
+      <option name="wallclock">01:00:00</option>
+      <option name="comment">CAM4 aquaplanet performance, MPAS 120 km, one GPU node (24 ranks, 6 per A100)</option>
+    </options>
+  </test>
+  <test compset="QPC4" grid="ne30pg3_ne30pg3_mg17" name="SMS_Ld1" testmods="cam/perf_se_cam4_derecho">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="sima_perf"/>
+    </machines>
+    <options>
+      <option name="wallclock">01:00:00</option>
+      <option name="comment">CAM4 aquaplanet performance, SE ne30pg3, 512 CPU ranks (4 nodes)</option>
+    </options>
+  </test>
+  <test compset="QPC4" grid="ne30pg3_ne30pg3_mg17" name="SMS_Ld1" testmods="cam/perf_se_cam4_derecho_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="sima_perf"/>
+    </machines>
+    <options>
+      <option name="wallclock">01:00:00</option>
+      <option name="comment">CAM4 aquaplanet performance, SE ne30pg3, one GPU node (24 ranks, 6 per A100)</option>
+    </options>
+  </test>
 
   <test compset="FHIST_C4" grid="ne3pg3_ne3pg3_mt233" name="SMS_D_Ln9" testmods="cam/outfrq_se_cam4">
     <machines>
       <machine name="derecho" compiler="intel" category="aux_sima"/>
       <machine name="derecho" compiler="gnu" category="aux_sima"/>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima"/>
     </machines>
     <options>
       <option name="wallclock">00:30:00</option>
@@ -363,6 +760,15 @@
         forcings (time-varying GHG, ozone, aerosol, volcanic, and solar datasets; time-varying SSTs)
         in debug mode
       </option>
+    </options>
+  </test>
+  <test compset="FHIST_C4" grid="ne3pg3_ne3pg3_mt233" name="SMS_D_Ln9" testmods="cam/outfrq_se_cam4_gpu">
+    <machines>
+      <machine name="derecho" compiler="nvhpc" category="aux_sima_gpu"/>
+    </machines>
+    <options>
+      <option name="wallclock">00:30:00</option>
+      <option name="comment">GPU version, compared with its nvhpc CPU test: CAM4 AMIP-style test with SE-CSLAM dycore at ne3 (ultra-low) resolution with transient historical forcings (time-varying GHG, ozone, aerosol, volcanic, and solar datasets; time-varying SSTs) in debug mode</option>
     </options>
   </test>
 

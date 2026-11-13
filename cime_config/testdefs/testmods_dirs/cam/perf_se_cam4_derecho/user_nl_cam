@@ -1,0 +1,3 @@
+! CAM4 aquaplanet initial state on the ne30 GLL grid, 26 levels (dry: PSDRY).
+! CAM-SIMA has no ne30 L26 default ncdata.
+ncdata = '/glade/campaign/cesm/cesmdata/inputdata/atm/cam/inic/se/ape_cam4_ne30np4_L26_c170417.nc'

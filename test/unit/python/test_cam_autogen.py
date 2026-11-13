@@ -13,7 +13,7 @@ or (for more verbose output):
 
 python test_cam_autogen.py -v
 
-which will currently run 14 tests, all of which should pass.
+which will currently run 15 tests, all of which should pass.
 """
 
 #----------------------------------------
@@ -29,6 +29,7 @@ from collections.abc import Iterable
 
 #Python unit-testing library:
 import unittest
+from unittest import mock
 
 #Add directory to python path:
 _CURRDIR = os.path.abspath(os.path.dirname(__file__))
@@ -58,6 +59,11 @@ from cam_autogen import CamAutoGenError
 from cam_autogen import _update_file, _find_schemes_in_sdf
 from cam_autogen import _find_metadata_files, generate_registry
 from cam_autogen import generate_physics_suites, generate_init_routines
+from cam_autogen import _find_suite_file, _find_schemes_in_py_suite
+from cam_autogen import _python_suite_inputs
+from cam_autogen import _xdsl_capture_settings, _xdsl_capture_fingerprint
+from cam_autogen import _resolve_xdsl_python
+from cam_autogen import _compile_command_flags, write_capture_compile_flags
 
 #Import necessary CCPP framework functions:
 from parse_tools import read_xml_file
@@ -97,13 +103,14 @@ class FakeBuildCache:
         """
         return False
 
-    def update_ccpp(self, sdfs, scheme_files, xml_files,
-                    preproc_defs, kind_phys):
+    def update_ccpp(self, sdfs, scheme_files, host_files, xml_files,
+                    namelist_meta_files, namelist_groups, create_nl_file,
+                    preproc_defs, kind_phys, ccpp_generator="capgen"):
 
         """Fake version of 'update_ccpp' method"""
 
     def ccpp_mismatch(self, sdfs, scheme_files, host_files,
-                      preproc_defs, kind_phys):
+                      preproc_defs, kind_phys, ccpp_generator="capgen"):
 
         """
         Fake version of 'ccpp_mismatch' method.
@@ -168,6 +175,67 @@ class FakeBuildCache:
 
     # pylint: enable=no-self-use
     # pylint: enable=unused-argument
+
+class RecordingBuildCache(FakeBuildCache):
+
+    """FakeBuildCache that records the suite inputs passed to 'ccpp_mismatch'."""
+
+    def __init__(self):
+        super().__init__()
+        self.suite_inputs = None
+
+    def ccpp_mismatch(self, sdfs, scheme_files, host_files,
+                      preproc_defs, kind_phys, ccpp_generator="capgen"):
+
+        """Record <sdfs>, then behave like FakeBuildCache.ccpp_mismatch."""
+        self.suite_inputs = list(sdfs)
+        return False
+
+class HostFilesBuildCache(FakeBuildCache):
+
+    """
+    FakeBuildCache holding cached scheme namelist metadata files.
+    It records the host files 'ccpp_mismatch' checks and the host
+    files 'update_ccpp' caches, and always reports a mismatch so
+    that 'update_ccpp' is called.
+    """
+
+    def __init__(self, nl_meta_files):
+        super().__init__()
+        self.nl_meta_files = list(nl_meta_files)
+        self.checked_host_files = None
+        self.cached_host_files = None
+
+    def ccpp_mismatch(self, sdfs, scheme_files, host_files,
+                      preproc_defs, kind_phys, ccpp_generator="capgen"):
+
+        """Record <host_files> and report a mismatch."""
+        self.checked_host_files = list(host_files)
+        return True
+
+    def update_ccpp(self, sdfs, scheme_files, host_files, xml_files,
+                    namelist_meta_files, namelist_groups, create_nl_file,
+                    preproc_defs, kind_phys, ccpp_generator="capgen"):
+
+        """Record <host_files>."""
+        self.cached_host_files = list(host_files)
+
+    def scheme_nl_metadata(self):
+
+        """Return the cached scheme namelist metadata files."""
+
+        return list(self.nl_meta_files)
+
+# Stand-in for a Python suite script: prints suite IR the way
+# xdsl_ccpp's export_suite does, without needing xdsl_ccpp installed.
+_FAKE_PY_SUITE = """import sys
+assert "--legacy-mode" in sys.argv
+print('"ccpp.suite"() <{suite_name = "simple", version = "1.0"}> ({')
+print('  "ccpp.scheme"() <{scheme_name = "temp_adjust"}> : () -> ()')
+print('  "ccpp.scheme"() <{scheme_name = "other_scheme", arg_overrides = {x = "1"}}> : () -> ()')
+print('  "ccpp.scheme"() <{scheme_name = "temp_adjust"}> : () -> ()')
+print('}) : () -> ()')
+"""
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #Main cam_autogen testing routine, used when script is run directly
@@ -612,6 +680,51 @@ class CamAutoGenTestRoutine(unittest.TestCase):
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+    def test_generate_physics_suites_caches_checked_host_files(self):
+
+        """
+        Check that "generate_physics_suites" caches the same host files
+        that it passes to "ccpp_mismatch".  The scheme namelist metadata
+        files are added to the host files after that check; caching them
+        made every later build report a mismatch and regenerate the caps.
+        """
+
+        #Copy test files into test SourceMods directory:
+        test_suite = os.path.join(self.test_suite_path, "write_init_files", "suite_simple.xml")
+        test_meta  = os.path.join(self.test_suite_path, "write_init_files", "temp_adjust.meta")
+        test_src  = os.path.join(self.test_suite_path, "write_init_files", "temp_adjust.F90")
+
+        shutil.copy2(test_suite, self.test_src_mods_dir)
+        shutil.copy2(test_meta, self.test_src_mods_dir)
+        shutil.copy2(test_src, self.test_src_mods_dir)
+
+        #Namelist metadata file held in the build cache:
+        nl_meta_file = os.path.join(self.test_bldroot, "ccpp", "temp_adjust_namelist.meta")
+        test_cache = HostFilesBuildCache([nl_meta_file])
+
+        #Run physics suite generation function, without running
+        #capgen or reading its (non-existent) datatable:
+        with mock.patch("cam_autogen.capgen", return_value=None), \
+             mock.patch("cam_autogen.datatable_report", return_value=""):
+            _ = generate_physics_suites(test_cache, "UNSET", "cam", "simple",
+                                        _CAM_ROOT_DIR, self.test_bldroot,
+                                        self.test_reg_dir, [],
+                                        self.test_src_mods_dir, False, False)
+        #End with
+
+        #The cached host files must match the checked host files:
+        self.assertNotIn(nl_meta_file, test_cache.cached_host_files)
+        self.assertEqual(test_cache.cached_host_files, test_cache.checked_host_files)
+
+        #Remove extra test files:
+        test_meta_files = glob.glob(f"{self.test_src_mods_dir}"+os.sep+"temp_adjust.*")
+        for test_file in test_meta_files:
+            os.remove(test_file)
+        #End for
+        os.remove(os.path.join(self.test_src_mods_dir, "suite_simple.xml"))
+
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
     def test_missing_sdf_generate_physics_suites(self):
 
         """
@@ -665,6 +778,203 @@ class CamAutoGenTestRoutine(unittest.TestCase):
         #Remove extra test file:
         os.remove(os.path.join(self.test_src_mods_dir, "suite_simple.xml"))
 
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    #Tests for Python suites (xdsl_ccpp's Python frontend)
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    def _write_py_suite(self, directory, name="simple", content=_FAKE_PY_SUITE):
+
+        """Write a stand-in Python suite 'suite_<name>.py' into <directory>."""
+
+        path = os.path.join(directory, f"suite_{name}.py")
+        with open(path, "w", encoding="utf-8") as suite_file:
+            suite_file.write(content)
+        #End with
+        return path
+
+    def _copy_temp_adjust_scheme(self):
+
+        """Copy the temp_adjust test scheme into the test SourceMods directory."""
+
+        for suffix in ("meta", "F90"):
+            shutil.copy2(os.path.join(self.test_suite_path, "write_init_files",
+                                      f"temp_adjust.{suffix}"), self.test_src_mods_dir)
+        #End for
+
+    def test_find_suite_file(self):
+
+        """
+        Check that "_find_suite_file" searches directories in order and,
+        within one directory, prefers a Python suite over an SDF.
+        """
+
+        other_dir = os.path.join(self.test_bldroot, "other_suites")
+        os.mkdir(other_dir)
+        xml_path = os.path.join(self.test_src_mods_dir, "suite_simple.xml")
+        shutil.copy2(os.path.join(self.test_suite_path, "write_init_files",
+                                  "suite_simple.xml"), xml_path)
+        later_py = self._write_py_suite(other_dir)
+
+        #An SDF in an earlier directory wins over a Python suite in a later one:
+        self.assertEqual(_find_suite_file("simple", [self.test_src_mods_dir, other_dir]),
+                         xml_path)
+        self.assertEqual(_find_suite_file("simple", [other_dir, self.test_src_mods_dir]),
+                         later_py)
+
+        #Within one directory, the Python suite wins:
+        same_dir_py = self._write_py_suite(self.test_src_mods_dir)
+        self.assertEqual(_find_suite_file("simple", [self.test_src_mods_dir]), same_dir_py)
+        self.assertIsNone(_find_suite_file("missing", [self.test_src_mods_dir]))
+
+        os.remove(xml_path)
+        os.remove(same_dir_py)
+
+    def test_find_schemes_in_py_suite(self):
+
+        """
+        Check that "_find_schemes_in_py_suite" returns the schemes a Python
+        suite calls, in call order without duplicates.
+        """
+
+        suite_path = self._write_py_suite(self.test_src_mods_dir)
+        self.assertEqual(_find_schemes_in_py_suite(suite_path, sys.executable),
+                         ["temp_adjust", "other_scheme"])
+        os.remove(suite_path)
+
+    def test_py_suite_imports_from_library(self):
+
+        """
+        Check that a Python suite outside the suite library (suites-py) can
+        import the library's modules, and that those modules, but not the
+        library's own suites, are inputs of the suite.
+        """
+
+        library = os.path.join(self.test_bldroot, "library")
+        os.makedirs(os.path.join(library, "parameterizations"))
+        helper = os.path.join(library, "parameterizations", "helper.py")
+        with open(helper, "w", encoding="utf-8") as helper_file:
+            helper_file.write("SCHEMES = ['temp_adjust', 'other_scheme']\n")
+        #End with
+        self._write_py_suite(library, name="production")
+        suite_path = self._write_py_suite(
+            self.test_src_mods_dir,
+            content="from parameterizations.helper import SCHEMES\n" + _FAKE_PY_SUITE)
+        self.assertEqual(_find_schemes_in_py_suite(suite_path, sys.executable, library),
+                         ["temp_adjust", "other_scheme"])
+        with self.assertRaises(CamAutoGenError):
+            _find_schemes_in_py_suite(suite_path, sys.executable)
+        #End with
+        self.assertEqual(_python_suite_inputs(suite_path, library), [suite_path, helper])
+        os.remove(suite_path)
+        shutil.rmtree(library)
+
+    def test_failing_py_suite(self):
+
+        """Check that a Python suite that fails to run raises CamAutoGenError."""
+
+        suite_path = self._write_py_suite(self.test_src_mods_dir,
+                                          content="raise SystemExit('broken suite')\n")
+        with self.assertRaises(CamAutoGenError) as autoerr:
+            _find_schemes_in_py_suite(suite_path, sys.executable)
+        #End with
+        self.assertIn("Unable to run Python suite", str(autoerr.exception))
+        self.assertIn("broken suite", str(autoerr.exception))
+        os.remove(suite_path)
+
+    def test_generate_physics_suites_python_suite(self):
+
+        """
+        Check that "generate_physics_suites" accepts a Python suite under
+        xdsl_ccpp: its schemes are found by running it, and the suite plus
+        the Python modules beside it and in suites-py are the suite inputs given to the
+        build cache.
+        """
+
+        self._copy_temp_adjust_scheme()
+        other_scheme = os.path.join(self.test_src_mods_dir, "other_scheme")
+        shutil.copy2(os.path.join(self.test_src_mods_dir, "temp_adjust.meta"),
+                     other_scheme + ".meta")
+        shutil.copy2(os.path.join(self.test_src_mods_dir, "temp_adjust.F90"),
+                     other_scheme + ".F90")
+        with open(other_scheme + ".meta", encoding="utf-8") as meta_file:
+            meta_text = meta_file.read().replace("temp_adjust", "other_scheme")
+        #End with
+        with open(other_scheme + ".meta", "w", encoding="utf-8") as meta_file:
+            meta_file.write(meta_text)
+        #End with
+        suite_path = self._write_py_suite(self.test_src_mods_dir)
+        helper_path = os.path.join(self.test_src_mods_dir, "my_package.py")
+        with open(helper_path, "w", encoding="utf-8") as helper_file:
+            helper_file.write("# helper module imported by the suite\n")
+        #End with
+
+        cache = RecordingBuildCache()
+        gen_results = generate_physics_suites(cache, "UNSET", "cam", "simple",
+                                              _CAM_ROOT_DIR, self.test_bldroot,
+                                              self.test_reg_dir, [],
+                                              self.test_src_mods_dir, False, False,
+                                              ccpp_generator="xdsl_ccpp")
+
+        self.assertEqual(gen_results[5], {"temp_adjust", "other_scheme"})
+        #The suite, the modules beside it, and those of the suite library
+        #(suites-py), whose own suites are not inputs:
+        self.assertEqual(cache.suite_inputs[0], suite_path)
+        self.assertIn(helper_path, cache.suite_inputs)
+        library = os.path.abspath(os.path.join(_CAM_ROOT_DIR, "src", "physics", "ncar_ccpp",
+                                               "suites-py"))
+        self.assertIn(os.path.join(library, "categories", "interface.py"), cache.suite_inputs)
+        self.assertFalse([path for path in cache.suite_inputs[1:]
+                          if os.path.basename(path).startswith("suite_")])
+
+        for test_file in glob.glob(os.path.join(self.test_src_mods_dir, "*")):
+            os.remove(test_file)
+        #End for
+
+    def test_python_suite_requires_xdsl_ccpp(self):
+
+        """Check that a Python suite is rejected unless CCPP_GENERATOR=xdsl_ccpp."""
+
+        suite_path = self._write_py_suite(self.test_src_mods_dir)
+        with self.assertRaises(CamAutoGenError) as autoerr:
+            _ = generate_physics_suites(self.test_cache, "UNSET", "cam", "simple",
+                                        _CAM_ROOT_DIR, self.test_bldroot,
+                                        self.test_reg_dir, [],
+                                        self.test_src_mods_dir, False, False)
+        #End with
+        self.assertIn("requires CCPP_GENERATOR=xdsl_ccpp", str(autoerr.exception))
+        os.remove(suite_path)
+
+    def test_python_suite_must_be_only_suite(self):
+
+        """Check that a Python suite cannot be combined with other suites."""
+
+        self._copy_temp_adjust_scheme()
+        suite_path = self._write_py_suite(self.test_src_mods_dir)
+        shutil.copy2(os.path.join(self.test_suite_path, "write_init_files",
+                                  "suite_simple.xml"),
+                     os.path.join(self.test_src_mods_dir, "suite_other.xml"))
+        with open(os.path.join(self.test_src_mods_dir, "temp_adjust.meta"),
+                  encoding="utf-8") as meta_file:
+            meta_text = meta_file.read().replace("temp_adjust", "other_scheme")
+        #End with
+        with open(os.path.join(self.test_src_mods_dir, "other_scheme.meta"), "w",
+                  encoding="utf-8") as meta_file:
+            meta_file.write(meta_text)
+        #End with
+        shutil.copy2(os.path.join(self.test_src_mods_dir, "temp_adjust.F90"),
+                     os.path.join(self.test_src_mods_dir, "other_scheme.F90"))
+        with self.assertRaises(CamAutoGenError) as autoerr:
+            _ = generate_physics_suites(self.test_cache, "UNSET", "cam", "simple;other",
+                                        _CAM_ROOT_DIR, self.test_bldroot,
+                                        self.test_reg_dir, [],
+                                        self.test_src_mods_dir, False, False,
+                                        ccpp_generator="xdsl_ccpp")
+        #End with
+        self.assertIn("must be the only physics suite", str(autoerr.exception))
+        for test_file in glob.glob(os.path.join(self.test_src_mods_dir, "*")):
+            os.remove(test_file)
+        #End for
+
     #+++++++++++++++++++++++++++++++++++++++++++++++++++
     #Tests for "generate_init_routines" autogen function
     #+++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -682,6 +992,240 @@ class CamAutoGenTestRoutine(unittest.TestCase):
 
         #Check that the output path matches what is expected:
         self.assertEqual(gen_path, expected_path)
+
+class XdslCaptureSettingsTest(unittest.TestCase):
+    """The scheme I/O capture settings (xdsl_ccpp) and their build-cache
+    fingerprint."""
+
+    def setUp(self):
+        self.tmp_dir = os.path.join(_CURRDIR, "tmp", "xdsl_capture")
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+        os.makedirs(self.tmp_dir)
+        self.list_file = os.path.join(self.tmp_dir, "schemes.txt")
+        with open(self.list_file, "w") as lfile:
+            lfile.write("kessler\ngeopotential_temp\n")
+        # end with
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def test_settings_from_cache_files_when_env_unset(self):
+        """Without the environment variables, the cache files are read."""
+        for name, value in ((".xdsl_ccpp_capture_scheme", "kessler:run"),
+                            (".xdsl_ccpp_capture_test_driver_dir", "/drivers")):
+            with open(os.path.join(self.tmp_dir, name), "w") as cfile:
+                cfile.write(value + "\n")
+            # end with
+        # end for
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("XDSL_CCPP_CAPTURE_SCHEME", None)
+            os.environ.pop("XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR", None)
+            self.assertEqual(_xdsl_capture_settings(self.tmp_dir),
+                             ("kessler:run", "/drivers"))
+        # end with
+
+    def _write_capture_cache(self):
+        for name, value in ((".xdsl_ccpp_capture_scheme", "kessler:run"),
+                            (".xdsl_ccpp_capture_test_driver_dir", "/drivers")):
+            with open(os.path.join(self.tmp_dir, name), "w") as cfile:
+                cfile.write(value + "\n")
+            # end with
+        # end for
+
+    def _without_capture_env(self):
+        patcher = mock.patch.dict(os.environ, {}, clear=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        os.environ.pop("XDSL_CCPP_CAPTURE_SCHEME", None)
+        os.environ.pop("XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR", None)
+
+    def test_case_variables_are_used(self):
+        """The case variables give the settings, ahead of the cache."""
+        self._write_capture_cache()
+        self._without_capture_env()
+        self.assertEqual(_xdsl_capture_settings(self.tmp_dir, ("qneg", "/cased")),
+                         ("qneg", "/cased"))
+
+    def test_empty_case_variables_mean_no_capture(self):
+        """In a case with the variables, empty means no capture, whatever
+        an old cache file says."""
+        self._write_capture_cache()
+        self._without_capture_env()
+        self.assertEqual(_xdsl_capture_settings(self.tmp_dir, ("", "")), ("", ""))
+
+    def test_environment_overrides_case_variables(self):
+        """An environment variable wins over its case variable."""
+        self._write_capture_cache()
+        with mock.patch.dict(os.environ, {"XDSL_CCPP_CAPTURE_SCHEME": "dadadj",
+                                          "XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR": ""}):
+            self.assertEqual(_xdsl_capture_settings(self.tmp_dir, ("qneg", "/cased")),
+                             ("dadadj", "/cased"))
+        # end with
+
+    def test_relative_list_file_made_absolute(self):
+        """A relative scheme-list path becomes absolute."""
+        rel_path = os.path.relpath(self.list_file)
+        with mock.patch.dict(os.environ, {"XDSL_CCPP_CAPTURE_SCHEME": rel_path,
+                                          "XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR": ""}):
+            self.assertEqual(_xdsl_capture_settings(self.tmp_dir),
+                             (os.path.abspath(self.list_file), ""))
+        # end with
+
+    def test_fingerprint_follows_the_list_contents(self):
+        """Editing the scheme list changes the fingerprint."""
+        before = _xdsl_capture_fingerprint(self.list_file, "/drivers", "case")
+        self.assertEqual(before, _xdsl_capture_fingerprint(self.list_file, "/drivers", "case"))
+        with open(self.list_file, "a") as lfile:
+            lfile.write("qneg\n")
+        # end with
+        self.assertNotEqual(before, _xdsl_capture_fingerprint(self.list_file, "/drivers", "case"))
+
+    def test_fingerprint_follows_dir_and_case(self):
+        """Another driver directory or case name changes the fingerprint."""
+        base = _xdsl_capture_fingerprint("kessler", "/drivers", "case")
+        self.assertNotEqual(base, _xdsl_capture_fingerprint("kessler", "/other", "case"))
+        self.assertNotEqual(base, _xdsl_capture_fingerprint("kessler", "/drivers", "case2"))
+
+class XdslPythonTest(unittest.TestCase):
+    """The interpreter that runs xdsl_ccpp: $XDSL_CCPP_PYTHON, the case's
+    XDSL_CCPP_PYTHON, the build-directory cache, then the running Python;
+    the build stops if it cannot import xdsl_ccpp."""
+
+    def setUp(self):
+        self.tmp_dir = os.path.join(_CURRDIR, "tmp", "xdsl_python")
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+        os.makedirs(self.tmp_dir)
+        # These tests run under a Python with xdsl_ccpp installed (the venv).
+        self.good = sys.executable
+        # A stand-in "python" that cannot import xdsl_ccpp: it always fails.
+        self.bad = os.path.join(self.tmp_dir, "python_without_xdsl_ccpp")
+        with open(self.bad, "w") as bfile:
+            bfile.write("#!/bin/sh\nexit 1\n")
+        # end with
+        os.chmod(self.bad, 0o755)
+        self.cache = os.path.join(self.tmp_dir, ".xdsl_ccpp_python")
+        self.env = mock.patch.dict(os.environ, {}, clear=False)
+        self.env.start()
+        os.environ.pop("XDSL_CCPP_PYTHON", None)
+
+    def tearDown(self):
+        self.env.stop()
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def _write_cache(self, value):
+        with open(self.cache, "w") as cfile:
+            cfile.write(value)
+        # end with
+
+    def test_environment_variable_comes_first(self):
+        """$XDSL_CCPP_PYTHON wins over the case variable and the cache."""
+        self._write_cache(self.bad)
+        os.environ["XDSL_CCPP_PYTHON"] = self.good
+        self.assertEqual(_resolve_xdsl_python(self.tmp_dir, self.bad), self.good)
+
+    def test_case_variable_comes_before_the_cache(self):
+        """The case's XDSL_CCPP_PYTHON wins over a stale cache: a clean
+        build directory or an old fallback in the cache does not matter."""
+        self._write_cache(self.bad)
+        self.assertEqual(_resolve_xdsl_python(self.tmp_dir, self.good), self.good)
+
+    def test_cache_used_without_env_or_case_variable(self):
+        """With neither variable set, the cached interpreter is used."""
+        self._write_cache(self.good)
+        self.assertEqual(_resolve_xdsl_python(self.tmp_dir), self.good)
+
+    def test_interpreter_without_xdsl_ccpp_stops_the_build(self):
+        """An interpreter that cannot import xdsl_ccpp is an error naming
+        where it came from, not a failure later in the cap generation."""
+        with self.assertRaises(CamAutoGenError) as cerr:
+            _resolve_xdsl_python(self.tmp_dir, self.bad)
+        # end with
+        self.assertIn(self.bad, str(cerr.exception))
+        self.assertIn("the case's XDSL_CCPP_PYTHON", str(cerr.exception))
+        self.assertIn("./xmlchange XDSL_CCPP_PYTHON=", str(cerr.exception))
+        self._write_cache(self.bad)
+        with self.assertRaises(CamAutoGenError) as cerr:
+            _resolve_xdsl_python(self.tmp_dir)
+        # end with
+        self.assertIn("the cache file", str(cerr.exception))
+
+    def test_missing_interpreter_stops_the_build(self):
+        """A path that does not exist is the same error."""
+        missing = os.path.join(self.tmp_dir, "no_such_python")
+        with self.assertRaises(CamAutoGenError) as cerr:
+            _resolve_xdsl_python(self.tmp_dir, missing)
+        # end with
+        self.assertIn(missing, str(cerr.exception))
+
+class CaptureCompileFlagsTest(unittest.TestCase):
+    """The compile flags written for the xdsl_ccpp capture replay build."""
+
+    _BASE = "-O -Mnofma -i4 -Mflushz -Knoieee -Mfree"
+    _GENERIC = "ftn -c -I. -I/bld/include -DSPMD {base} -noacc /src/{name}.F90"
+    _PUMAS = ("ftn -c -I. -DSPMD {base} -O3 -fastsse -Mnofma -MllvmO0 "
+              "-acc -gpu=cc80,nofma,math_uniform /src/pumas/{name}.F90")
+
+    def setUp(self):
+        self.tmp_dir = os.path.join(_CURRDIR, "tmp", "capture_flags")
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+        self.genccpp_dir = os.path.join(self.tmp_dir, "ccpp")
+        self.driver_dir = os.path.join(self.tmp_dir, "drivers")
+        os.makedirs(self.genccpp_dir)
+        os.makedirs(self.driver_dir)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def _output(self, names, template=None, extra=""):
+        template = template or self._GENERIC
+        return "\n".join(template.format(base=self._BASE + extra, name=name)
+                         for name in names)
+
+    def _written(self):
+        with open(os.path.join(self.driver_dir, "capture_compile_flags.txt")) as ffile:
+            lines = [line.split() for line in ffile if not line.startswith("#")]
+        # end with
+        return {words[0]: words[1:] for words in lines}
+
+    def test_compile_command_keeps_only_the_numerics_flags(self):
+        """Includes, definitions, output and accelerator flags are dropped."""
+        name, flags = _compile_command_flags(
+            self._PUMAS.format(base=self._BASE, name="micro_pumas_utils"))
+        self.assertEqual(name, "micro_pumas_utils.F90")
+        self.assertEqual(flags, self._BASE.split() + ["-O3", "-fastsse", "-Mnofma", "-MllvmO0"])
+        self.assertEqual(_compile_command_flags("mpif90 -c -o x.o -I /inc -J mods -D A -O0 x.f90"),
+                         ("x.f90", ["-O0"]))
+        for line in ("ar ru libatm.a a.o", "cc -c -O2 x.c", "ftn -o cesm.exe a.o",
+                     'echo "unbalanced'):
+            self.assertIsNone(_compile_command_flags(line))
+        # end for
+
+    def test_flags_file_with_the_most_common_flags_as_default(self):
+        """Each source gets its own line; '*' is the most common flags."""
+        output = "\n".join([self._output(["a", "b", "c"]),
+                            self._output(["micro_pumas_utils"], self._PUMAS),
+                            "ar ru libatm.a a.o"])
+        path = write_capture_compile_flags(output, self.genccpp_dir, self.driver_dir)
+        self.assertEqual(path, os.path.join(self.driver_dir, "capture_compile_flags.txt"))
+        written = self._written()
+        self.assertEqual(written["*"], self._BASE.split())
+        self.assertEqual(written["a.F90"], self._BASE.split())
+        self.assertIn("-fastsse", written["micro_pumas_utils.F90"])
+
+    def test_incremental_build_keeps_the_earlier_files(self):
+        """A rebuild compiling one file updates it and keeps the rest."""
+        write_capture_compile_flags(self._output(["a", "b"]), self.genccpp_dir, self.driver_dir)
+        write_capture_compile_flags(self._output(["b"], extra=" -g"),
+                                    self.genccpp_dir, self.driver_dir)
+        written = self._written()
+        self.assertEqual(written["a.F90"], self._BASE.split())
+        self.assertEqual(written["b.F90"][-1], "-g")
+
+    def test_nothing_written_without_compile_commands(self):
+        """No known flags: no file."""
+        self.assertIsNone(write_capture_compile_flags("make: nothing to be done",
+                                                      self.genccpp_dir, self.driver_dir))
+        self.assertFalse(os.listdir(self.driver_dir))
 
 #################################################
 #Run unit tests if this script is called directly

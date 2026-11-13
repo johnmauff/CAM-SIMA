@@ -67,6 +67,7 @@ class FakeCase:
             "COMP_ATM" : "cam",
             "EXEROOT"  : "/some/made-up/path",
             "CASEROOT" : "/another/made-up/path",
+            "CASE" : "made_up_case",
             "CAM_CONFIG_OPTS" : "--dyn none --physics-suites mango;papaya",
             "COMP_ROOT_DIR_ATM" : "/a/third/made-up/path",
             "CAM_CPPDEFS" : "UNSET",
@@ -75,7 +76,15 @@ class FakeCase:
             "CAM_SIM_YEAR" : "2000",
             "CAM_SIM_TYPE" : None,
             "DEBUG" : False,
-            "OPENACC_GPU_OFFLOAD": False
+            "OPENACC_GPU_OFFLOAD": False,
+            "CCPP_GENERATOR": "capgen",
+            "CCPP_PACKAGE_CAPS": False,
+            "CCPP_SUITE_DIR": "",
+            "XDSL_CCPP_PYTHON": "",
+            "RRTMGP_KERNELS": "auto",
+            "XDSL_CCPP_CAPTURE_SCHEME": "",
+            "XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR": "",
+            "GMAKE_J": 1
             }
 
     def get_value(self, key):

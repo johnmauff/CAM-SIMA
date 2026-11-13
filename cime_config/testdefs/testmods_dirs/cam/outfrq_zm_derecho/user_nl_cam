@@ -4,6 +4,12 @@ ncdata_check='/glade/campaign/cesm/amwg/soft_eng/sima_baselines/cam_sima_test_sn
 debug_output=0
 ncdata_check_err = .true.
 min_difference = 2e-15
+! Used instead by cam/cross_compiler_check_tolerance when this case's compiler
+! is not the snapshot's (gnu). 1e-11 is the usual cross-compiler limit;
+! ZM's hydrometeor number concentrations differ by up to ~5e-6 on intel and nvhpc,
+! so this check fails there ON PURPOSE until xdsl-ccpp BACKLOG
+! zm-number-concentration-compiler-diffs is resolved.
+! cross_compiler_min_difference = 1e-11
 pver=58
 ! ZM namelist as in the CAM7 snapshot run
 zmconv_c0_lnd=0.00549D0

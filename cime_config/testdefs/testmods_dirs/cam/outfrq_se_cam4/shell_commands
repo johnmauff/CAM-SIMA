@@ -1,3 +1,9 @@
 ./xmlchange CAM_LINKED_LIBS=" "
 ./xmlchange ROF_NCPL=$(./xmlquery --value ATM_NCPL)
 ./xmlchange GLC_NCPL=$(./xmlquery --value ATM_NCPL)
+# nvhpc CPU/GPU verification: run the GPU (accel/) rte-rrtmgp kernels on the
+# CPU too, so the CPU test and its _gpu counterpart use the same algorithm
+# and can be compared bit for bit. gnu/intel keep the CPU kernels.
+if [ "$(./xmlquery --value COMPILER)" = "nvhpc" ]; then
+  ./xmlchange RRTMGP_KERNELS=accel
+fi
