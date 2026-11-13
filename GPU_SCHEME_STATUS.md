@@ -1,7 +1,8 @@
 # GPU status of the CAM physics schemes
 
-Which schemes in the cam4, cam5 and cam7 suites (`src/physics/ncar_ccpp/suites/suite_cam{4,5,7}.xml`)
-run on the GPU and are confirmed bit-for-bit against the nvhpc CPU build.
+Which schemes in the cam4, cam5 and cam7 suites
+(`src/physics/ncar_ccpp/suites/suite_cam{4,5,7}.xml`) run on the GPU and are
+confirmed bit-for-bit against the nvhpc CPU build.
 
 - ✅ GPU-enabled and verified bit-for-bit on the GPU
 - ❌ CPU only
@@ -9,18 +10,15 @@ run on the GPU and are confirmed bit-for-bit against the nvhpc CPU build.
 
 **Totals:** cam4: 49 ✅ / 106 ❌ of 155 · cam5: 47 ✅ / 85 ❌ of 132 · cam7: 41 ✅ / 86 ❌ of 127
 
-Status as of 2026-11-12 (atmospheric_physics `xdsl-support` @ `7663967`, PUMAS `props-device`).
-A scheme is marked ✅ when:
-- its own `_init`/`_run`/... routines carry OpenACC directives, or the scheme drives GPU kernels in
-  routines it calls;
-- its object is compiled with OpenACC (`ccs_config/machines/Depends.nvhpc` GPU object lists);
-- it runs in a GPU test that passed bit-for-bit against its CPU baseline: GPU regression xdsl82gpu
-  (`compare=20261109-efc0937-nvhpc`, zero tolerance: cam4 SE/MPAS and the FPHYStest suites);
-  pumas_post_main from the PUMAS GPU tests s61/s62 and the capture replays.
-
-Verification is per scheme, so a scheme verified in one suite is marked ✅ in every configuration
-that uses it. cam5 has no full-model test (its suite is not wired to a compset), and the cam7
-full-model test (F2000_C7) fails at run upstream; their marks come from the cam4 and FPHYStest runs.
+Generated 2026-11-12 by `tools/gpu_scheme_status.py`
+(CAM-SIMA `783b885`, atmospheric_physics `7663967`) from GPU
+tests that passed bit-for-bit against their CPU baselines: xdsl82gpu; also verified elsewhere: `pumas_post_main`
+(33 cases). A scheme is ✅ when its own routines carry OpenACC
+directives (or, for `micro_pumas_ccpp`, the package it calls runs on the GPU), its
+object is compiled with OpenACC (`ccs_config/machines/Depends.nvhpc`), and it
+runs in one of those tests. Verification is per scheme, so a scheme verified in
+one suite is ✅ in every configuration that uses it; cam5 and cam7 marks can
+come from the cam4 and FPHYStest runs.
 
 | Scheme | cam4 | cam5 | cam7 |
 |---|:---:|:---:|:---:|
@@ -224,8 +222,8 @@ full-model test (F2000_C7) fails at run upstream; their marks come from the cam4
 | `zm_prepare_flux_for_check_energy` | ✅ |  | ✅ |
 | `zm_tendency_diagnostics` | ❌ | ❌ | ❌ |
 
-¹ No OpenACC in the CCPP wrapper itself; the PUMAS microphysics it calls (`micro_pumas_tend` and
-its process routines) runs on the GPU and is verified bit-for-bit.
+¹ No OpenACC in the CCPP wrapper itself; the package it calls runs on the GPU
+and is verified bit-for-bit.
 
 ## Notes on the ❌ entries
 
