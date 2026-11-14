@@ -1150,6 +1150,14 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                         cmd += ["--capture-source-root", _share_src]
                     # end if
                 # end if
+                # Capture handlers for derived types the capture cannot
+                # record itself (the RTE-RRTMGP objects); xdsl_ccpp-only
+                # tooling, so it lives in CAM-SIMA, not the physics repo.
+                _ddt_handlers = os.path.join(atm_root, "src", "physics", "capture",
+                                             "capture_handlers.txt")
+                if os.path.isfile(_ddt_handlers):
+                    cmd += ["--capture-ddt-handlers", _ddt_handlers]
+                # end if
                 if case_name:
                     # Written into every capture file; with a driver
                     # directory, the data goes to <driver dir>/<case_name>.
