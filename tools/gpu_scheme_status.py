@@ -4,14 +4,17 @@ verified bit-for-bit (GPU_SCHEME_STATUS.md at the repository root).
 
 One row per scheme in src/physics/ncar_ccpp/suites/suite_cam{4,5,7}.xml, one
 column per configuration:
+  🧪  (before the mark, with --capture-root) a unit test is available: a
+      capture replay driver was built for the scheme
+      (<capture root>/capture_*/build*/test_<scheme>, from
+      xdsl_ccpp --capture-scheme and build_capture_tests.sh), the latest
+      generation still writes it (test_<scheme>.cmake next to it, so a
+      leftover executable does not count) and its run phase was not left
+      out (test_<scheme>.skipped)
   ✅  GPU-enabled and verified bit-for-bit on the GPU
   ❌  CPU only
   (blank) the scheme is not in that configuration's suite
-  🧪  (after the mark, with --capture-root) a unit test is available: a
-      capture replay driver was built for the scheme
-      (<capture root>/capture_*/build*/test_<scheme>, from
-      xdsl_ccpp --capture-scheme and build_capture_tests.sh) whose run phase
-      was not left out (test_<scheme>.skipped)
+  😀  (last) optimized on the CPU and the GPU (--optimized-scheme)
 
 A scheme is ✅ when all of these hold:
   * its own <scheme>_<phase> routines carry OpenACC directives (any !$acc
@@ -61,7 +64,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PHYSICS = os.path.join(REPO, "src", "physics", "ncar_ccpp")
 DEPENDS = os.path.join(REPO, "ccs_config", "machines", "Depends.nvhpc")
 CONFIGS = ("cam4", "cam5", "cam7")
-OK, NO, TEST = "✅", "❌", "🧪"
+OK, NO, TEST, OPTIMIZED = "✅", "❌", "🧪", "😀"
 PHASES = ("register", "init", "timestep_init", "run", "timestep_final", "final")
 ONE_TIME = {"register", "init", "final"}
 
@@ -197,7 +200,9 @@ def _run_phase_left_out(capture_dir, scheme):
 
 def unit_tested(capture_root):
     """Schemes with a built capture replay test: an executable
-    capture_*/build*/test_<scheme> under capture_root."""
+    capture_*/build*/test_<scheme> under capture_root whose
+    test_<scheme>.cmake the latest generation wrote (a scheme it no longer
+    builds, e.g. one now blocked by a module, leaves its old executable)."""
     if capture_root is None:
         return set()
     found = set()
@@ -205,7 +210,10 @@ def unit_tested(capture_root):
         if not (os.path.isfile(path) and os.access(path, os.X_OK)):
             continue
         scheme = os.path.basename(path)[len("test_"):]
-        if not _run_phase_left_out(os.path.dirname(os.path.dirname(path)), scheme):
+        capture_dir = os.path.dirname(os.path.dirname(path))
+        if not os.path.isfile(os.path.join(capture_dir, f"test_{scheme}.cmake")):
+            continue
+        if not _run_phase_left_out(capture_dir, scheme):
             found.add(scheme)
     if not found:
         print(f"warning: no capture replay tests under {capture_root}", file=sys.stderr)
@@ -233,6 +241,9 @@ def main():
     parser.add_argument("--callee-gpu", action="append", default=None,
                         help="scheme whose GPU work is all in a package it calls "
                              "(repeatable; default: micro_pumas_ccpp)")
+    parser.add_argument("--optimized-scheme", action="append", default=[],
+                        help=f"scheme optimized on the CPU and the GPU, marked {OPTIMIZED} "
+                             "(repeatable)")
     parser.add_argument("--capture-root",
                         help="directory holding the capture_* replay directories; "
                              f"marks schemes with a built unit test {TEST}")
@@ -277,7 +288,8 @@ def main():
         cells = []
         for config in CONFIGS:
             if name in suites[config]:
-                cells.append((OK if ok else NO) + (f" {TEST}" if name in tested_units else ""))
+                cells.append((f"{TEST} " if name in tested_units else "") + (OK if ok else NO)
+                             + (f" {OPTIMIZED}" if name in args.optimized_scheme else ""))
                 counts[section][config][0 if ok else 1] += 1
             else:
                 cells.append("")
@@ -310,10 +322,11 @@ Which schemes in the cam4, cam5 and cam7 suites
 (`src/physics/ncar_ccpp/suites/suite_cam{{4,5,7}}.xml`) run on the GPU and are
 confirmed bit-for-bit against the nvhpc CPU build.
 
-- {OK} GPU-enabled and verified bit-for-bit on the GPU
+{f"- {TEST} a unit test is available (a built capture replay of the scheme)" + chr(10) if tested_units else ""}- {OK} GPU-enabled and verified bit-for-bit on the GPU
 - {NO} CPU only
 - blank: the scheme is not in that configuration's suite
-{f"- {TEST} a unit test is available (a built capture replay of the scheme)" + chr(10) if tested_units else ""}
+- {OPTIMIZED} optimized on the CPU and the GPU
+
 Generated {datetime.date.today().isoformat()} by `tools/gpu_scheme_status.py`
 (CAM-SIMA `{git_head(REPO)}`, atmospheric_physics `{git_head(PHYSICS)}`) from GPU
 tests that passed bit-for-bit against their CPU baselines: {evidence}
