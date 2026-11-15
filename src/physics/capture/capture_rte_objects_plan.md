@@ -34,7 +34,14 @@ generated, and how a `ty_gas_concs` handler can learn the object's shape.
 
 The handlers are in CAM-SIMA `src/physics/capture/`, beside this document:
 
-- `ccpp_capture_rte_objects.F90`, the handler module;
+- `ccpp_capture_rte_objects.F90`, the handler module. Its `device_enter` and
+  `device_exit` routines (stage 3c) keep an object on the device across a
+  GPU test driver's call of a scheme whose OpenACC names it. The drivers
+  model production with all schemes on the GPU and the data resident, not
+  today's per-scheme data regions; the schemes and caps are unchanged;
+- `ccpp_netcdf_reader.F90`, a plain-NetCDF `ccpp_io_reader` (stage 3b), so
+  a test driver can run the gas optics init that loads the coefficient
+  file; a `driver_source`, so it never reaches the model, which has PIO's;
 - `capture_handlers.txt`, the registry.
 
 `cam_autogen.py` passes the registry when a capture is configured. The

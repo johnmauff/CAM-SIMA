@@ -1149,6 +1149,12 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                     if os.path.isdir(_share_src):
                         cmd += ["--capture-source-root", _share_src]
                     # end if
+                    # The drivers' CPU build compiles the RRTMGP kernels
+                    # this build compiles (_set_rrtmgp_dependencies), so a
+                    # CPU replay runs the captured model's algorithm.
+                    if gpu_flag or rrtmgp_kernels == "accel":
+                        cmd += ["--capture-accel-variants"]
+                    # end if
                 # end if
                 # Capture handlers for derived types the capture cannot
                 # record itself (the RTE-RRTMGP objects); xdsl_ccpp-only

@@ -28,6 +28,18 @@
 ! present on one side only, or of another shape, is a failure. Rebuilt
 ! flux pointers point at new arrays, never freed (the drivers are short).
 !
+! Device residency (GPU test drivers only): <prefix>_device_enter(obj) puts
+! the RTE object inside the wrapper and each of its allocated (associated)
+! arrays on the device, the parts the RRTMGP schemes' own data clauses
+! name; <prefix>_device_exit(obj, copy_out) copies the arrays back when
+! copy_out (an out/inout argument), else deletes them, and always deletes
+! the object (copying it back could overwrite scalars a scheme set on the
+! host). A test driver calls them around the call of a scheme whose
+! directives name the argument, so the scheme finds its data present, as
+! in a production run where the data stays on the device between schemes.
+! The gas concentrations' contents are private (RTE copies them itself):
+! only the object is put on the device.
+!
 ! Uses xdsl_ccpp's capture runtime (ccpp_capture_mod): compiled only into
 ! capture builds and their test drivers, never into a normal model build.
 module ccpp_capture_rte_objects
@@ -62,6 +74,13 @@ module ccpp_capture_rte_objects
    public :: ccpp_capture_rte_fluxes_byband_compare
    public :: ccpp_capture_rte_gas_concs_write, ccpp_capture_rte_gas_concs_read
    public :: ccpp_capture_rte_gas_concs_compare
+   public :: ccpp_capture_rte_props_1scl_device_enter, ccpp_capture_rte_props_1scl_device_exit
+   public :: ccpp_capture_rte_props_2str_device_enter, ccpp_capture_rte_props_2str_device_exit
+   public :: ccpp_capture_rte_sources_lw_device_enter, ccpp_capture_rte_sources_lw_device_exit
+   public :: ccpp_capture_rte_fluxes_bb_device_enter, ccpp_capture_rte_fluxes_bb_device_exit
+   public :: ccpp_capture_rte_fluxes_byband_device_enter
+   public :: ccpp_capture_rte_fluxes_byband_device_exit
+   public :: ccpp_capture_rte_gas_concs_device_enter, ccpp_capture_rte_gas_concs_device_exit
 
    character(len=*), parameter :: dims_band = 'band_limit,number_of_bands'
    character(len=*), parameter :: dims_gpt3 = 'ncol,nlay,number_of_gpoints'
@@ -460,6 +479,267 @@ contains
       is_set = len_trim(errmsg) == 0
       if (index(errmsg, "hasn't been set") > 0) errmsg = ''
    end subroutine get_gas_vmr
+
+   ! ---------------------------------------------------------------------
+   ! Device residency (GPU test drivers)
+   ! ---------------------------------------------------------------------
+
+   subroutine ccpp_capture_rte_props_1scl_device_enter(obj)
+      type(ty_optical_props_1scl_ccpp), intent(inout) :: obj
+
+      !$acc enter data copyin(obj%optical_props)
+      if (allocated(obj%optical_props%tau)) then
+         !$acc enter data copyin(obj%optical_props%tau)
+      end if
+   end subroutine ccpp_capture_rte_props_1scl_device_enter
+
+   subroutine ccpp_capture_rte_props_1scl_device_exit(obj, copy_out)
+      type(ty_optical_props_1scl_ccpp), intent(inout) :: obj
+      logical,                          intent(in)    :: copy_out
+
+      if (allocated(obj%optical_props%tau)) then
+         if (copy_out) then
+            !$acc exit data copyout(obj%optical_props%tau)
+         else
+            !$acc exit data delete(obj%optical_props%tau)
+         end if
+      end if
+      !$acc exit data delete(obj%optical_props)
+   end subroutine ccpp_capture_rte_props_1scl_device_exit
+
+   subroutine ccpp_capture_rte_props_2str_device_enter(obj)
+      type(ty_optical_props_2str_ccpp), intent(inout) :: obj
+
+      !$acc enter data copyin(obj%optical_props)
+      if (allocated(obj%optical_props%tau)) then
+         !$acc enter data copyin(obj%optical_props%tau)
+      end if
+      if (allocated(obj%optical_props%ssa)) then
+         !$acc enter data copyin(obj%optical_props%ssa)
+      end if
+      if (allocated(obj%optical_props%g)) then
+         !$acc enter data copyin(obj%optical_props%g)
+      end if
+   end subroutine ccpp_capture_rte_props_2str_device_enter
+
+   subroutine ccpp_capture_rte_props_2str_device_exit(obj, copy_out)
+      type(ty_optical_props_2str_ccpp), intent(inout) :: obj
+      logical,                          intent(in)    :: copy_out
+
+      if (allocated(obj%optical_props%tau)) then
+         if (copy_out) then
+            !$acc exit data copyout(obj%optical_props%tau)
+         else
+            !$acc exit data delete(obj%optical_props%tau)
+         end if
+      end if
+      if (allocated(obj%optical_props%ssa)) then
+         if (copy_out) then
+            !$acc exit data copyout(obj%optical_props%ssa)
+         else
+            !$acc exit data delete(obj%optical_props%ssa)
+         end if
+      end if
+      if (allocated(obj%optical_props%g)) then
+         if (copy_out) then
+            !$acc exit data copyout(obj%optical_props%g)
+         else
+            !$acc exit data delete(obj%optical_props%g)
+         end if
+      end if
+      !$acc exit data delete(obj%optical_props)
+   end subroutine ccpp_capture_rte_props_2str_device_exit
+
+   subroutine ccpp_capture_rte_sources_lw_device_enter(obj)
+      type(ty_source_func_lw_ccpp), intent(inout) :: obj
+
+      !$acc enter data copyin(obj%sources)
+      if (allocated(obj%sources%lay_source)) then
+         !$acc enter data copyin(obj%sources%lay_source)
+      end if
+      if (allocated(obj%sources%lev_source)) then
+         !$acc enter data copyin(obj%sources%lev_source)
+      end if
+      if (allocated(obj%sources%sfc_source)) then
+         !$acc enter data copyin(obj%sources%sfc_source)
+      end if
+      if (allocated(obj%sources%sfc_source_Jac)) then
+         !$acc enter data copyin(obj%sources%sfc_source_Jac)
+      end if
+   end subroutine ccpp_capture_rte_sources_lw_device_enter
+
+   subroutine ccpp_capture_rte_sources_lw_device_exit(obj, copy_out)
+      type(ty_source_func_lw_ccpp), intent(inout) :: obj
+      logical,                      intent(in)    :: copy_out
+
+      if (allocated(obj%sources%lay_source)) then
+         if (copy_out) then
+            !$acc exit data copyout(obj%sources%lay_source)
+         else
+            !$acc exit data delete(obj%sources%lay_source)
+         end if
+      end if
+      if (allocated(obj%sources%lev_source)) then
+         if (copy_out) then
+            !$acc exit data copyout(obj%sources%lev_source)
+         else
+            !$acc exit data delete(obj%sources%lev_source)
+         end if
+      end if
+      if (allocated(obj%sources%sfc_source)) then
+         if (copy_out) then
+            !$acc exit data copyout(obj%sources%sfc_source)
+         else
+            !$acc exit data delete(obj%sources%sfc_source)
+         end if
+      end if
+      if (allocated(obj%sources%sfc_source_Jac)) then
+         if (copy_out) then
+            !$acc exit data copyout(obj%sources%sfc_source_Jac)
+         else
+            !$acc exit data delete(obj%sources%sfc_source_Jac)
+         end if
+      end if
+      !$acc exit data delete(obj%sources)
+   end subroutine ccpp_capture_rte_sources_lw_device_exit
+
+   subroutine ccpp_capture_rte_fluxes_bb_device_enter(obj)
+      type(ty_fluxes_broadband_ccpp), intent(inout) :: obj
+
+      !$acc enter data copyin(obj%fluxes)
+      call broadband_device_enter(obj%fluxes)
+   end subroutine ccpp_capture_rte_fluxes_bb_device_enter
+
+   subroutine ccpp_capture_rte_fluxes_bb_device_exit(obj, copy_out)
+      type(ty_fluxes_broadband_ccpp), intent(inout) :: obj
+      logical,                        intent(in)    :: copy_out
+
+      call broadband_device_exit(obj%fluxes, copy_out)
+      !$acc exit data delete(obj%fluxes)
+   end subroutine ccpp_capture_rte_fluxes_bb_device_exit
+
+   subroutine ccpp_capture_rte_fluxes_byband_device_enter(obj)
+      type(ty_fluxes_byband_ccpp), intent(inout) :: obj
+
+      !$acc enter data copyin(obj%fluxes)
+      call broadband_device_enter(obj%fluxes)
+      if (associated(obj%fluxes%bnd_flux_up)) then
+         !$acc enter data copyin(obj%fluxes%bnd_flux_up)
+      end if
+      if (associated(obj%fluxes%bnd_flux_dn)) then
+         !$acc enter data copyin(obj%fluxes%bnd_flux_dn)
+      end if
+      if (associated(obj%fluxes%bnd_flux_net)) then
+         !$acc enter data copyin(obj%fluxes%bnd_flux_net)
+      end if
+      if (associated(obj%fluxes%bnd_flux_dn_dir)) then
+         !$acc enter data copyin(obj%fluxes%bnd_flux_dn_dir)
+      end if
+   end subroutine ccpp_capture_rte_fluxes_byband_device_enter
+
+   subroutine ccpp_capture_rte_fluxes_byband_device_exit(obj, copy_out)
+      type(ty_fluxes_byband_ccpp), intent(inout) :: obj
+      logical,                     intent(in)    :: copy_out
+
+      if (associated(obj%fluxes%bnd_flux_up)) then
+         if (copy_out) then
+            !$acc exit data copyout(obj%fluxes%bnd_flux_up)
+         else
+            !$acc exit data delete(obj%fluxes%bnd_flux_up)
+         end if
+      end if
+      if (associated(obj%fluxes%bnd_flux_dn)) then
+         if (copy_out) then
+            !$acc exit data copyout(obj%fluxes%bnd_flux_dn)
+         else
+            !$acc exit data delete(obj%fluxes%bnd_flux_dn)
+         end if
+      end if
+      if (associated(obj%fluxes%bnd_flux_net)) then
+         if (copy_out) then
+            !$acc exit data copyout(obj%fluxes%bnd_flux_net)
+         else
+            !$acc exit data delete(obj%fluxes%bnd_flux_net)
+         end if
+      end if
+      if (associated(obj%fluxes%bnd_flux_dn_dir)) then
+         if (copy_out) then
+            !$acc exit data copyout(obj%fluxes%bnd_flux_dn_dir)
+         else
+            !$acc exit data delete(obj%fluxes%bnd_flux_dn_dir)
+         end if
+      end if
+      call broadband_device_exit(obj%fluxes, copy_out)
+      !$acc exit data delete(obj%fluxes)
+   end subroutine ccpp_capture_rte_fluxes_byband_device_exit
+
+   subroutine ccpp_capture_rte_gas_concs_device_enter(obj)
+      type(ty_gas_concs_ccpp), intent(inout) :: obj
+
+      !$acc enter data copyin(obj%gas_concs)
+   end subroutine ccpp_capture_rte_gas_concs_device_enter
+
+   subroutine ccpp_capture_rte_gas_concs_device_exit(obj, copy_out)
+      type(ty_gas_concs_ccpp), intent(inout) :: obj
+      logical,                 intent(in)    :: copy_out
+
+      ! Nothing of it is copied back: its contents stay on the host (RTE
+      ! copies the concentrations it needs itself).
+      if (copy_out) continue
+      !$acc exit data delete(obj%gas_concs)
+   end subroutine ccpp_capture_rte_gas_concs_device_exit
+
+   ! The broadband flux arrays (pointers) of an object already on the device.
+   subroutine broadband_device_enter(fluxes)
+      class(ty_fluxes_broadband), intent(inout) :: fluxes
+
+      if (associated(fluxes%flux_up)) then
+         !$acc enter data copyin(fluxes%flux_up)
+      end if
+      if (associated(fluxes%flux_dn)) then
+         !$acc enter data copyin(fluxes%flux_dn)
+      end if
+      if (associated(fluxes%flux_net)) then
+         !$acc enter data copyin(fluxes%flux_net)
+      end if
+      if (associated(fluxes%flux_dn_dir)) then
+         !$acc enter data copyin(fluxes%flux_dn_dir)
+      end if
+   end subroutine broadband_device_enter
+
+   subroutine broadband_device_exit(fluxes, copy_out)
+      class(ty_fluxes_broadband), intent(inout) :: fluxes
+      logical,                    intent(in)    :: copy_out
+
+      if (associated(fluxes%flux_up)) then
+         if (copy_out) then
+            !$acc exit data copyout(fluxes%flux_up)
+         else
+            !$acc exit data delete(fluxes%flux_up)
+         end if
+      end if
+      if (associated(fluxes%flux_dn)) then
+         if (copy_out) then
+            !$acc exit data copyout(fluxes%flux_dn)
+         else
+            !$acc exit data delete(fluxes%flux_dn)
+         end if
+      end if
+      if (associated(fluxes%flux_net)) then
+         if (copy_out) then
+            !$acc exit data copyout(fluxes%flux_net)
+         else
+            !$acc exit data delete(fluxes%flux_net)
+         end if
+      end if
+      if (associated(fluxes%flux_dn_dir)) then
+         if (copy_out) then
+            !$acc exit data copyout(fluxes%flux_dn_dir)
+         else
+            !$acc exit data delete(fluxes%flux_dn_dir)
+         end if
+      end if
+   end subroutine broadband_device_exit
 
    ! ---------------------------------------------------------------------
    ! Shared parts
