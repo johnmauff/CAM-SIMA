@@ -1039,6 +1039,24 @@ contains
       call ccpp_capture_report(trim(label) // '%' // comp, call_count, .false., n_failed)
    end subroutine compare_missing
 
+   ! Why a real array differs: the maximum difference and the first
+   ! mismatching element (column-major index into *actual*/*expected*,
+   ! flattened), with both values and their bit patterns -- a difference
+   ! too small to print (subnormals, signed zeros) still shows.
+   subroutine report_mismatch(label, comp, max_abs_diff, first, actual, expected)
+      use, intrinsic :: iso_fortran_env, only: int64
+      character(len=*), intent(in) :: label, comp
+      real(kind_phys),  intent(in) :: max_abs_diff
+      integer,          intent(in) :: first
+      real(kind_phys),  intent(in) :: actual(:), expected(:)
+
+      write(*,'(4a,es24.16)') '  ', trim(label), '%', trim(comp) // ': max abs diff ', max_abs_diff
+      if (first < 1 .or. first > size(actual)) return
+      write(*,'(a,i0,2(a,es24.16,a,z16.16,a))') '    first mismatch at element ', first, &
+         ': actual ', actual(first), ' (', transfer(actual(first), 0_int64), ')', &
+         ', expected ', expected(first), ' (', transfer(expected(first), 0_int64), ')'
+   end subroutine report_mismatch
+
    subroutine compare_r8_2d(path, label, comp, tolerance, call_count, n_failed, actual)
       character(len=*), intent(in)    :: path, label, comp
       real(kind_phys),  intent(in)    :: tolerance
@@ -1047,6 +1065,7 @@ contains
       real(kind_phys),  intent(in)    :: actual(:,:)
       real(kind_phys), allocatable :: expected(:,:)
       real(kind_phys) :: max_abs_diff
+      integer :: first
       integer :: extents(2)
       logical :: found, ok
 
@@ -1055,8 +1074,11 @@ contains
       if (ok) then
          allocate(expected(extents(1), extents(2)))
          call ccpp_capture_read(path, comp, expected)
-         ok = ccpp_capture_compare(actual, expected, tolerance, max_abs_diff=max_abs_diff)
-         if (.not. ok) write(*,*) '  ', trim(label), '%', comp, ': max abs diff ', max_abs_diff
+         ok = ccpp_capture_compare(actual, expected, tolerance, max_abs_diff=max_abs_diff, &
+                                   first_mismatch_index=first)
+         if (.not. ok) call report_mismatch(label, comp, max_abs_diff, first, &
+                                            reshape(actual, [size(actual)]), &
+                                            reshape(expected, [size(expected)]))
       end if
       call ccpp_capture_report(trim(label) // '%' // comp, call_count, ok, n_failed)
    end subroutine compare_r8_2d
@@ -1069,6 +1091,7 @@ contains
       real(kind_phys),  intent(in)    :: actual(:,:,:)
       real(kind_phys), allocatable :: expected(:,:,:)
       real(kind_phys) :: max_abs_diff
+      integer :: first
       integer :: extents(3)
       logical :: found, ok
 
@@ -1077,8 +1100,11 @@ contains
       if (ok) then
          allocate(expected(extents(1), extents(2), extents(3)))
          call ccpp_capture_read(path, comp, expected)
-         ok = ccpp_capture_compare(actual, expected, tolerance, max_abs_diff=max_abs_diff)
-         if (.not. ok) write(*,*) '  ', trim(label), '%', comp, ': max abs diff ', max_abs_diff
+         ok = ccpp_capture_compare(actual, expected, tolerance, max_abs_diff=max_abs_diff, &
+                                   first_mismatch_index=first)
+         if (.not. ok) call report_mismatch(label, comp, max_abs_diff, first, &
+                                            reshape(actual, [size(actual)]), &
+                                            reshape(expected, [size(expected)]))
       end if
       call ccpp_capture_report(trim(label) // '%' // comp, call_count, ok, n_failed)
    end subroutine compare_r8_3d
