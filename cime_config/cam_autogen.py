@@ -1166,13 +1166,19 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                         os.makedirs(_xdsl_capture_driver_dir)
                     # end if
                     cmd += ["--capture-test-driver-dir", _xdsl_capture_driver_dir]
-                    # CESM share code (shr_kind_mod, shr_spfn_mod, ...), for
+                    # CESM share code (shr_kind_mod, shr_spfn_mod, ...), and
+                    # its random-number library (shr_RandNum_mod, for the
+                    # RRTMGP McICA schemes; with C sources and headers), for
                     # the modules the captured schemes use that are not in
                     # the physics repository.
-                    _share_src = os.path.join(atm_root, "share", "src")
-                    if os.path.isdir(_share_src):
-                        cmd += ["--capture-source-root", _share_src]
-                    # end if
+                    for _share_root in (("share", "src"),
+                                        ("share", "RandNum", "src"),
+                                        ("share", "RandNum", "include")):
+                        _share_src = os.path.join(atm_root, *_share_root)
+                        if os.path.isdir(_share_src):
+                            cmd += ["--capture-source-root", _share_src]
+                        # end if
+                    # end for
                     # The drivers' CPU build compiles the RRTMGP kernels
                     # this build compiles (_set_rrtmgp_dependencies), so a
                     # CPU replay runs the captured model's algorithm.

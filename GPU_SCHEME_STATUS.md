@@ -10,9 +10,9 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - blank: the scheme is not in that configuration's suite
 - 😀 optimized on the CPU and the GPU
 
-Generated 2026-11-15 by `tools/gpu_scheme_status.py`
-(CAM-SIMA `4da5e3e`, atmospheric_physics `c8a4b85`) from GPU
-tests that passed bit-for-bit against their CPU baselines: xdsl91gpu
+Generated 2026-11-16 by `tools/gpu_scheme_status.py`
+(CAM-SIMA `af4f13f`, atmospheric_physics `f58cd89`) from GPU
+tests that passed bit-for-bit against their CPU baselines: xdsl92gpu
 (33 cases). A scheme is ✅ when its own routines carry OpenACC
 directives (or, for `micro_pumas_ccpp`, the package it calls runs on the GPU), its
 object is compiled with OpenACC (`ccs_config/machines/Depends.nvhpc`), and it
@@ -22,7 +22,7 @@ come from the cam4 and FPHYStest runs.
 
 | Scheme | cam4 | cam5 | cam7 |
 |---|:---:|:---:|:---:|
-| **Physics schemes** (✅ / schemes) | **49/108** | **47/97** | **41/88** |
+| **Physics schemes** (✅ / schemes) | **57/108** | **55/97** | **49/88** |
 | `aerosol_optics` | ❌ |  | ❌ |
 | `apply_constituent_tendencies` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `apply_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
@@ -107,26 +107,26 @@ come from the cam4 and FPHYStest runs.
 | `rrtmgp_constituents` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_dry_static_energy_tendency` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_inputs` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
-| `rrtmgp_lw_aerosols` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
-| `rrtmgp_lw_calculate_fluxes` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `rrtmgp_lw_aerosols` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
+| `rrtmgp_lw_calculate_fluxes` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_lw_calculate_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_lw_cloud_optics` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_lw_gas_optics` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_lw_gas_optics_pre` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
-| `rrtmgp_lw_mcica_subcol_gen` | ❌ | ❌ | ❌ |
+| `rrtmgp_lw_gas_optics_pre` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
+| `rrtmgp_lw_mcica_subcol_gen` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_lw_rte` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_post` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `rrtmgp_post` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_pre` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_subcycle` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
-| `rrtmgp_sw_aerosols` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
-| `rrtmgp_sw_calculate_fluxes` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `rrtmgp_sw_aerosols` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
+| `rrtmgp_sw_calculate_fluxes` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_sw_calculate_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_sw_cloud_optics` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_sw_gas_optics` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_sw_gas_optics_pre` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
-| `rrtmgp_sw_mcica_subcol_gen` | ❌ | ❌ | ❌ |
+| `rrtmgp_sw_gas_optics_pre` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
+| `rrtmgp_sw_mcica_subcol_gen` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_sw_rte` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_sw_solar_var` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `rrtmgp_sw_solar_var` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_variables` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `save_core_tend_from_convect_deep` |  |  | 🧪 ❌ |
 | `save_ttend_from_convect_deep` |  |  | ❌ |
