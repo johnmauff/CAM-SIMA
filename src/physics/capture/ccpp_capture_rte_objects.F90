@@ -370,7 +370,17 @@ contains
       path = trim(group) // '/' // trim(name)
       call obj%reset()
       call ccpp_capture_read(path, 'n_gases', n_gases, found)
-      if (.not. found .or. n_gases <= 0) return
+      if (.not. found .or. n_gases <= 0) then
+         ! No gases: still initialize (with none), so the object goes through
+         ! RTE's init and its OpenACC enter data. RTE's final procedure
+         ! deletes the object from the device, and a GPU driver crashed
+         ! finalizing one that init never entered (an SW capture with no
+         ! daylit columns).
+         allocate(gas_names(0))
+         errmsg = obj%init(gas_names)
+         if (len_trim(errmsg) > 0) call warn(path, errmsg)
+         return
+      end if
       allocate(gas_names(n_gases))
       call ccpp_capture_read(path, 'gas_names', gas_names)
       call ccpp_capture_read(path, 'ncol', ncol)

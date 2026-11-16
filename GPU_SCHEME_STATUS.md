@@ -10,9 +10,9 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - blank: the scheme is not in that configuration's suite
 - 😀 optimized on the CPU and the GPU
 
-Generated 2026-11-14 by `tools/gpu_scheme_status.py`
-(CAM-SIMA `0ed5689`, atmospheric_physics `ff9da83`) from GPU
-tests that passed bit-for-bit against their CPU baselines: xdsl84gpu
+Generated 2026-11-15 by `tools/gpu_scheme_status.py`
+(CAM-SIMA `4da5e3e`, atmospheric_physics `c8a4b85`) from GPU
+tests that passed bit-for-bit against their CPU baselines: xdsl91gpu
 (33 cases). A scheme is ✅ when its own routines carry OpenACC
 directives (or, for `micro_pumas_ccpp`, the package it calls runs on the GPU), its
 object is compiled with OpenACC (`ccs_config/machines/Depends.nvhpc`), and it
@@ -63,19 +63,19 @@ come from the cam4 and FPHYStest runs.
 | `eddy_diffusivity_adjustment_above_pbl` |  | 🧪 ✅ |  |
 | `geopotential_temp` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `gravity_wave_drag_common` | ❌ | ❌ | ❌ |
-| `gravity_wave_drag_convection_deep` |  |  | ❌ |
-| `gravity_wave_drag_frontogenesis` |  |  | ❌ |
-| `gravity_wave_drag_moving_mountain` |  |  | ❌ |
+| `gravity_wave_drag_convection_deep` |  |  | 🧪 ❌ |
+| `gravity_wave_drag_frontogenesis` |  |  | 🧪 ❌ |
+| `gravity_wave_drag_moving_mountain` |  |  | 🧪 ❌ |
 | `gravity_wave_drag_orographic` | ❌ | ❌ |  |
 | `gravity_wave_drag_prepare_profiles` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
-| `gravity_wave_drag_ridge_beta` |  |  | ❌ |
+| `gravity_wave_drag_ridge_beta` |  |  | 🧪 ❌ |
 | `hack_convect_shallow` | 🧪 ✅ |  |  |
 | `hb_diff_exchange_coefficients` | 🧪 ✅ |  |  |
 | `hb_diff_prepare_vertical_diffusion_inputs` | ❌ | ❌ |  |
 | `hb_pbl_dependent_coefficients` | 🧪 ✅ |  |  |
 | `hb_pbl_independent_coefficients` | 🧪 ✅ |  |  |
 | `implicit_surface_stress_add_drag_coefficient` | 🧪 ❌ | 🧪 ❌ |  |
-| `mcsp` |  |  | ❌ |
+| `mcsp` |  |  | 🧪 ❌ |
 | `micro_pumas_ccpp` ¹ |  | 🧪 ✅ | 🧪 ✅ |
 | `micro_pumas_ccpp_dimensions_post` |  | 🧪 ✅ | 🧪 ✅ |
 | `micro_pumas_ccpp_dimensions_pre` |  | 🧪 ✅ | 🧪 ✅ |
@@ -110,9 +110,9 @@ come from the cam4 and FPHYStest runs.
 | `rrtmgp_lw_aerosols` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_lw_calculate_fluxes` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_lw_calculate_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_lw_cloud_optics` | ❌ | ❌ | ❌ |
+| `rrtmgp_lw_cloud_optics` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_lw_gas_optics` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_lw_gas_optics_pre` | ❌ | ❌ | ❌ |
+| `rrtmgp_lw_gas_optics_pre` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_lw_mcica_subcol_gen` | ❌ | ❌ | ❌ |
 | `rrtmgp_lw_rte` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_post` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
@@ -121,12 +121,12 @@ come from the cam4 and FPHYStest runs.
 | `rrtmgp_sw_aerosols` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_sw_calculate_fluxes` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_sw_calculate_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_sw_cloud_optics` | ❌ | ❌ | ❌ |
+| `rrtmgp_sw_cloud_optics` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_sw_gas_optics` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_sw_gas_optics_pre` | ❌ | ❌ | ❌ |
+| `rrtmgp_sw_gas_optics_pre` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_sw_mcica_subcol_gen` | ❌ | ❌ | ❌ |
 | `rrtmgp_sw_rte` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_sw_solar_var` | ❌ | ❌ | ❌ |
+| `rrtmgp_sw_solar_var` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `rrtmgp_variables` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `save_core_tend_from_convect_deep` |  |  | 🧪 ❌ |
 | `save_ttend_from_convect_deep` |  |  | ❌ |
