@@ -32,7 +32,8 @@ from cam_build_cache import BuildCacheCAM # Re-build consistency cache
 # Import fortran auto-generation routines:
 from cam_autogen import generate_registry, generate_physics_suites
 from cam_autogen import generate_init_routines
-from cam_autogen import _xdsl_capture_settings, write_capture_compile_flags
+from cam_autogen import _xdsl_capture_settings, _xdsl_capture_ranks
+from cam_autogen import write_capture_compile_flags
 
 ###############################################################################
 #HELPER FUNCTIONS
@@ -210,6 +211,11 @@ class ConfigCAM:
                           case.get_value("XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR"))
         self.__capture_case_values = (None if None in capture_values
                                       else capture_values)
+        # The MPI ranks captured ("": rank 0 only; "all": every ATM task).
+        capture_ranks = case.get_value("XDSL_CCPP_CAPTURE_RANKS") or ""
+        self.__capture_ranks = _xdsl_capture_ranks(
+            capture_ranks,
+            case.get_value("NTASKS_ATM") if capture_ranks.strip().lower() == "all" else None)
         # Directory to read the suite definition from (empty: the default search).
         self.__suite_dir = case.get_value("CCPP_SUITE_DIR") or ""
         # The build's parallelism, also used for xdsl_ccpp's parallel
@@ -944,7 +950,8 @@ class ConfigCAM:
                                           case_name=self.__case_name,
                                           xdsl_python=self.__xdsl_python,
                                           capture_case_values=self.__capture_case_values,
-                                          rrtmgp_kernels=self.__rrtmgp_kernels)
+                                          rrtmgp_kernels=self.__rrtmgp_kernels,
+                                          capture_ranks=self.__capture_ranks)
         phys_dirs, force_init, _, nml_fils, resolved_vars_source, scheme_names = retvals
 
         # Add namelist definition files to dictionary:

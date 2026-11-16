@@ -111,6 +111,15 @@
     <desc>xdsl_ccpp only, with XDSL_CCPP_CAPTURE_SCHEME: the directory for the generated capture test drivers and their CMake build; the capture files go to its subdirectory named after the case. The XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR environment variable, when set, overrides it.</desc>
   </entry>
 
+  <entry id="XDSL_CCPP_CAPTURE_RANKS">
+    <type>char</type>
+    <valid_values></valid_values>
+    <default_value></default_value>
+    <group>build_component_cam</group>
+    <file>env_build.xml</file>
+    <desc>xdsl_ccpp only, with XDSL_CCPP_CAPTURE_SCHEME: the MPI ranks whose scheme calls are captured, for the entries without their own ranks= field (e.g. 'rrtmgp_sw_rte ranks=7,12' in a scheme list file): comma-separated ranks and ranges (e.g. 7, 3,4 or 0-23), or 'all' (0 to NTASKS_ATM-1). Empty (default): rank 0 only. With any rank other than 0, each rank writes to its own subdirectory rank&lt;r&gt; of the capture data directory.</desc>
+  </entry>
+
   <entry id="CCPP_PACKAGE_CAPS">
     <type>logical</type>
     <valid_values>TRUE,FALSE</valid_values>

@@ -62,6 +62,7 @@ from cam_autogen import generate_physics_suites, generate_init_routines
 from cam_autogen import _find_suite_file, _find_schemes_in_py_suite
 from cam_autogen import _python_suite_inputs
 from cam_autogen import _xdsl_capture_settings, _xdsl_capture_fingerprint
+from cam_autogen import _xdsl_capture_ranks
 from cam_autogen import _resolve_xdsl_python
 from cam_autogen import _compile_command_flags, write_capture_compile_flags
 
@@ -1085,6 +1086,22 @@ class XdslCaptureSettingsTest(unittest.TestCase):
         base = _xdsl_capture_fingerprint("kessler", "/drivers", "case")
         self.assertNotEqual(base, _xdsl_capture_fingerprint("kessler", "/other", "case"))
         self.assertNotEqual(base, _xdsl_capture_fingerprint("kessler", "/drivers", "case2"))
+
+    def test_fingerprint_follows_ranks(self):
+        """Other captured ranks change the fingerprint."""
+        base = _xdsl_capture_fingerprint("kessler", "/drivers", "case")
+        self.assertEqual(base, _xdsl_capture_fingerprint("kessler", "/drivers", "case", ""))
+        self.assertNotEqual(base, _xdsl_capture_fingerprint("kessler", "/drivers", "case", "3,4"))
+
+    def test_capture_ranks(self):
+        """Empty: no option; 'all': every ATM task; else as given."""
+        self.assertEqual(_xdsl_capture_ranks(""), "")
+        self.assertEqual(_xdsl_capture_ranks(None), "")
+        self.assertEqual(_xdsl_capture_ranks(" 3,4 "), "3,4")
+        self.assertEqual(_xdsl_capture_ranks("ALL", 24), "0-23")
+        with self.assertRaises(CamAutoGenError):
+            _xdsl_capture_ranks("all", None)
+        # end with
 
 class XdslPythonTest(unittest.TestCase):
     """The interpreter that runs xdsl_ccpp: $XDSL_CCPP_PYTHON, the case's

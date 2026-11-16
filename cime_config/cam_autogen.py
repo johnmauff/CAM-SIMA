@@ -693,15 +693,35 @@ def _xdsl_capture_settings(genccpp_dir, case_values=None):
     return scheme_spec, driver_dir
 
 ###############################################################################
-def _xdsl_capture_fingerprint(scheme_spec, driver_dir, case_name):
+def _xdsl_capture_ranks(value, ntasks=None):
+###############################################################################
+    """
+    The --capture-ranks value for the case's XDSL_CCPP_CAPTURE_RANKS
+    <value>: "" (rank 0 only: no option) when empty, every rank
+    "0-<ntasks - 1>" for "all" (<ntasks>: NTASKS_ATM), else <value> as
+    given (xdsl_ccpp checks it).
+    """
+    value = (value or "").strip()
+    if value.lower() != "all":
+        return value
+    # end if
+    if not ntasks or int(ntasks) < 1:
+        raise CamAutoGenError("ERROR: XDSL_CCPP_CAPTURE_RANKS=all needs NTASKS_ATM "
+                              f"(got '{ntasks}')")
+    # end if
+    return f"0-{int(ntasks) - 1}"
+
+###############################################################################
+def _xdsl_capture_fingerprint(scheme_spec, driver_dir, case_name, ranks=""):
 ###############################################################################
     """
     A short hash of everything that shapes the capture code (the scheme
-    entry or the contents of a scheme list file, the driver directory and
-    the case name), so the build cache regenerates when any of it changes.
+    entry or the contents of a scheme list file, the driver directory, the
+    case name and the captured ranks), so the build cache regenerates when
+    any of it changes.
     """
     digest = hashlib.sha1()
-    digest.update(f"{scheme_spec}\n{driver_dir}\n{case_name}\n".encode())
+    digest.update(f"{scheme_spec}\n{driver_dir}\n{case_name}\n{ranks}\n".encode())
     if os.path.isfile(scheme_spec):
         with open(scheme_spec, "rb") as sfile:
             digest.update(sfile.read())
@@ -818,7 +838,8 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                             gpu_flag, force, ccpp_generator="capgen",
                             package_caps=False, suite_dir="", jobs=1,
                             case_name="", xdsl_python="",
-                            capture_case_values=None, rrtmgp_kernels="auto"):
+                            capture_case_values=None, rrtmgp_kernels="auto",
+                            capture_ranks=""):
 ###############################################################################
     """
     Generate the source for the configured physics suites,
@@ -860,6 +881,9 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
     <capture_case_values> (xdsl_ccpp only) is the case's
     (XDSL_CCPP_CAPTURE_SCHEME, XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR), or None
     for a case without those variables; see _xdsl_capture_settings.
+
+    <capture_ranks> (xdsl_ccpp capture only) is the --capture-ranks value,
+    "" for rank 0 only; see _xdsl_capture_ranks.
     """
     if package_caps and ccpp_generator != "xdsl_ccpp":
         raise CamAutoGenError("ERROR: CCPP_PACKAGE_CAPS=TRUE requires "
@@ -874,7 +898,7 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
             os.path.join(bldroot, "ccpp"), capture_case_values)
         if capture_scheme:
             cache_generator += "+capture:" + _xdsl_capture_fingerprint(
-                capture_scheme, capture_driver_dir, case_name)
+                capture_scheme, capture_driver_dir, case_name, capture_ranks)
         # end if
     # end if
 
@@ -1168,6 +1192,10 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
                     # Written into every capture file; with a driver
                     # directory, the data goes to <driver dir>/<case_name>.
                     cmd += ["--capture-label", case_name]
+                # end if
+                if capture_ranks:
+                    # The MPI ranks captured (default: rank 0 only).
+                    cmd += ["--capture-ranks", capture_ranks]
                 # end if
             # end if
             if gpu_flag:

@@ -84,6 +84,8 @@ class FakeCase:
             "RRTMGP_KERNELS": "auto",
             "XDSL_CCPP_CAPTURE_SCHEME": "",
             "XDSL_CCPP_CAPTURE_TEST_DRIVER_DIR": "",
+            "XDSL_CCPP_CAPTURE_RANKS": "",
+            "NTASKS_ATM": 4,
             "GMAKE_J": 1
             }
 
