@@ -197,7 +197,7 @@ class ConfigCAM:
         # or "accel" (GPU kernels everywhere, for CPU/GPU verification).
         # None in a case created before RRTMGP_KERNELS existed.
         self.__rrtmgp_kernels = case.get_value("RRTMGP_KERNELS") or "auto"
-        # CCPP cap-generation backend: 'capgen' (default) or 'xdsl_ccpp'.
+        # CCPP cap-generation backend: 'xdsl_ccpp' (default) or 'capgen'.
         self.__ccpp_generator = case.get_value("CCPP_GENERATOR")
         # xdsl_ccpp only: one Fortran module per package of a Python suite.
         self.__package_caps = bool(case.get_value("CCPP_PACKAGE_CAPS"))
