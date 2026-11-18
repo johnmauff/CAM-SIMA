@@ -10,9 +10,9 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - blank: the scheme is not in that configuration's suite
 - 😀 optimized on the CPU and the GPU
 
-Generated 2026-11-17 by `tools/gpu_scheme_status.py`
-(CAM-SIMA `02ac990`, atmospheric_physics `c7d2656`) from GPU
-tests that passed bit-for-bit against their CPU baselines: xdsl97gpu; also verified elsewhere: `rrtmgp_inputs`
+Generated 2026-11-18 by `tools/gpu_scheme_status.py`
+(CAM-SIMA `bf0e715`, atmospheric_physics `a554f01`) from GPU
+tests that passed bit-for-bit against their CPU baselines: xdsl98gpu; also verified elsewhere: `rrtmgp_inputs`, `zm_conv_cloud_top`
 (31 cases). A scheme is ✅ when its own routines carry OpenACC
 directives (or, for `micro_pumas_ccpp`, the package it calls runs on the GPU), its
 object is compiled with OpenACC (`ccs_config/machines/Depends.nvhpc`), and it
@@ -22,7 +22,7 @@ come from the cam4 and FPHYStest runs.
 
 | Scheme | cam4 | cam5 | cam7 |
 |---|:---:|:---:|:---:|
-| **Physics schemes** (✅ / schemes) | **62/108** | **60/97** | **54/88** |
+| **Physics schemes** (✅ / schemes) | **63/108** | **61/97** | **56/88** |
 | `aerosol_optics` | ❌ |  | ❌ |
 | `apply_constituent_tendencies` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `apply_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
@@ -153,11 +153,11 @@ come from the cam4 and FPHYStest runs.
 | `vertical_diffusion_tendencies` | 🧪 ❌ | 🧪 ❌ |  |
 | `vertical_diffusion_wind_damping_rate` | 🧪 ❌ | 🧪 ❌ |  |
 | `wv_saturation` | ✅ | ✅ | ✅ |
-| `zm_conv_cloud_top` |  |  | 🧪 ❌ |
+| `zm_conv_cloud_top` |  |  | 🧪 ✅ |
 | `zm_conv_convtran` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `zm_conv_evap` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `zm_conv_momtran` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `zm_convr` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `zm_convr` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `zm_prepare_flux_for_check_energy` | 🧪 ✅ |  | 🧪 ✅ |
 | **Register/init/final-only schemes** (✅ / schemes) | **1/13** | **1/13** | **1/12** |
 | `cloud_fraction_options` | ❌ | ❌ | ❌ |
