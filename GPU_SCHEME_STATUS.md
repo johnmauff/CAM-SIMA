@@ -10,10 +10,10 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - blank: the scheme is not in that configuration's suite
 - 😀 optimized on the CPU and the GPU
 
-Generated 2026-11-16 by `tools/gpu_scheme_status.py`
-(CAM-SIMA `e863cce`, atmospheric_physics `a6735c8`) from GPU
-tests that passed bit-for-bit against their CPU baselines: xdsl92gpu; also verified elsewhere: `rrtmgp_inputs`
-(33 cases). A scheme is ✅ when its own routines carry OpenACC
+Generated 2026-11-17 by `tools/gpu_scheme_status.py`
+(CAM-SIMA `02ac990`, atmospheric_physics `c7d2656`) from GPU
+tests that passed bit-for-bit against their CPU baselines: xdsl97gpu; also verified elsewhere: `rrtmgp_inputs`
+(31 cases). A scheme is ✅ when its own routines carry OpenACC
 directives (or, for `micro_pumas_ccpp`, the package it calls runs on the GPU), its
 object is compiled with OpenACC (`ccs_config/machines/Depends.nvhpc`), and it
 runs in one of those tests. Verification is per scheme, so a scheme verified in
@@ -22,7 +22,7 @@ come from the cam4 and FPHYStest runs.
 
 | Scheme | cam4 | cam5 | cam7 |
 |---|:---:|:---:|:---:|
-| **Physics schemes** (✅ / schemes) | **58/108** | **56/97** | **50/88** |
+| **Physics schemes** (✅ / schemes) | **62/108** | **60/97** | **54/88** |
 | `aerosol_optics` | ❌ |  | ❌ |
 | `apply_constituent_tendencies` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `apply_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
@@ -110,10 +110,10 @@ come from the cam4 and FPHYStest runs.
 | `rrtmgp_lw_aerosols` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_lw_calculate_fluxes` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_lw_calculate_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_lw_cloud_optics` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `rrtmgp_lw_cloud_optics` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_lw_gas_optics` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_lw_gas_optics_pre` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_lw_mcica_subcol_gen` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `rrtmgp_lw_mcica_subcol_gen` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_lw_rte` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_post` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_pre` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
@@ -121,10 +121,10 @@ come from the cam4 and FPHYStest runs.
 | `rrtmgp_sw_aerosols` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_sw_calculate_fluxes` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_sw_calculate_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_sw_cloud_optics` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `rrtmgp_sw_cloud_optics` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_sw_gas_optics` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_sw_gas_optics_pre` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_sw_mcica_subcol_gen` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `rrtmgp_sw_mcica_subcol_gen` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_sw_rte` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_sw_solar_var` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_variables` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
@@ -159,7 +159,7 @@ come from the cam4 and FPHYStest runs.
 | `zm_conv_momtran` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `zm_convr` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `zm_prepare_flux_for_check_energy` | 🧪 ✅ |  | 🧪 ✅ |
-| **Register/init/final-only schemes** (✅ / schemes) | **0/13** | **0/13** | **0/12** |
+| **Register/init/final-only schemes** (✅ / schemes) | **1/13** | **1/13** | **1/12** |
 | `cloud_fraction_options` | ❌ | ❌ | ❌ |
 | `clubb_stub` |  |  | ❌ |
 | `gravity_wave_drag_ridge` |  |  | ❌ |
@@ -169,7 +169,7 @@ come from the cam4 and FPHYStest runs.
 | `holtslag_boville_diff` | ❌ |  |  |
 | `holtslag_boville_diff_options` | ❌ |  |  |
 | `pumas_pre_main` |  | ❌ | ❌ |
-| `rrtmgp_cloud_optics_setup` | ❌ | ❌ | ❌ |
+| `rrtmgp_cloud_optics_setup` | ✅ | ✅ | ✅ |
 | `rrtmgp_inputs_setup` | ❌ | ❌ | ❌ |
 | `rrtmgp_sw_solar_var_setup` | ❌ | ❌ | ❌ |
 | `set_cloud_fraction_top` |  |  | ❌ |
