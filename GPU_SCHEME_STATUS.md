@@ -11,8 +11,8 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - 😀 optimized on the CPU and the GPU
 
 Generated 2026-11-18 by `tools/gpu_scheme_status.py`
-(CAM-SIMA `bf0e715`, atmospheric_physics `a554f01`) from GPU
-tests that passed bit-for-bit against their CPU baselines: xdsl98gpu; also verified elsewhere: `rrtmgp_inputs`, `zm_conv_cloud_top`
+(CAM-SIMA `b4f7193`, atmospheric_physics `72b2a44`) from GPU
+tests that passed bit-for-bit against their CPU baselines: xdsl99gpu; also verified elsewhere: `rrtmgp_inputs`, `zm_conv_cloud_top`
 (31 cases). A scheme is ✅ when its own routines carry OpenACC
 directives (or, for `micro_pumas_ccpp`, the package it calls runs on the GPU), its
 object is compiled with OpenACC (`ccs_config/machines/Depends.nvhpc`), and it
@@ -22,7 +22,7 @@ come from the cam4 and FPHYStest runs.
 
 | Scheme | cam4 | cam5 | cam7 |
 |---|:---:|:---:|:---:|
-| **Physics schemes** (✅ / schemes) | **63/108** | **61/97** | **56/88** |
+| **Physics schemes** (✅ / schemes) | **72/108** | **70/97** | **56/88** |
 | `aerosol_optics` | ❌ |  | ❌ |
 | `apply_constituent_tendencies` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `apply_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
@@ -47,7 +47,7 @@ come from the cam4 and FPHYStest runs.
 | `cloud_water_paths` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `compute_cloud_fraction` | 🧪 ✅ | 🧪 ✅ |  |
 | `compute_cloud_fraction_two_moment` |  | ❌ | ❌ |
-| `compute_kinematic_fluxes_and_obklen` | 🧪 ❌ | 🧪 ❌ |  |
+| `compute_kinematic_fluxes_and_obklen` | 🧪 ✅ | 🧪 ✅ |  |
 | `compute_relative_humidity` |  |  | ❌ |
 | `compute_subgrid_vertical_velocity_clubb` |  |  | 🧪 ❌ |
 | `compute_subgrid_vertical_velocity_tke` |  | ❌ |  |
@@ -74,7 +74,7 @@ come from the cam4 and FPHYStest runs.
 | `hb_diff_prepare_vertical_diffusion_inputs` | ❌ | ❌ |  |
 | `hb_pbl_dependent_coefficients` | 🧪 ✅ |  |  |
 | `hb_pbl_independent_coefficients` | 🧪 ✅ |  |  |
-| `implicit_surface_stress_add_drag_coefficient` | 🧪 ❌ | 🧪 ❌ |  |
+| `implicit_surface_stress_add_drag_coefficient` | 🧪 ✅ | 🧪 ✅ |  |
 | `mcsp` |  |  | 🧪 ❌ |
 | `micro_pumas_ccpp` ¹ |  | 🧪 ✅ | 🧪 ✅ |
 | `micro_pumas_ccpp_dimensions_post` |  | 🧪 ✅ | 🧪 ✅ |
@@ -144,14 +144,14 @@ come from the cam4 and FPHYStest runs.
 | `vertical_diffusion_diffuse_dry_static_energy` | 🧪 ❌ | 🧪 ❌ |  |
 | `vertical_diffusion_diffuse_horizontal_momentum` | 🧪 ❌ | 🧪 ❌ |  |
 | `vertical_diffusion_diffuse_tracers` | 🧪 ❌ | 🧪 ❌ |  |
-| `vertical_diffusion_interpolate_to_interfaces` | 🧪 ❌ | 🧪 ❌ |  |
-| `vertical_diffusion_prepare_inputs` | 🧪 ❌ | 🧪 ❌ |  |
-| `vertical_diffusion_set_dry_static_energy_at_toa_zero` | 🧪 ❌ | 🧪 ❌ |  |
-| `vertical_diffusion_set_temperature_at_toa_default` | 🧪 ❌ | 🧪 ❌ |  |
-| `vertical_diffusion_set_total_surface_stress` | 🧪 ❌ | 🧪 ❌ |  |
+| `vertical_diffusion_interpolate_to_interfaces` | 🧪 ✅ | 🧪 ✅ |  |
+| `vertical_diffusion_prepare_inputs` | 🧪 ✅ | 🧪 ✅ |  |
+| `vertical_diffusion_set_dry_static_energy_at_toa_zero` | 🧪 ✅ | 🧪 ✅ |  |
+| `vertical_diffusion_set_temperature_at_toa_default` | 🧪 ✅ | 🧪 ✅ |  |
+| `vertical_diffusion_set_total_surface_stress` | 🧪 ✅ | 🧪 ✅ |  |
 | `vertical_diffusion_sponge_layer` | 🧪 ✅ | 🧪 ✅ |  |
-| `vertical_diffusion_tendencies` | 🧪 ❌ | 🧪 ❌ |  |
-| `vertical_diffusion_wind_damping_rate` | 🧪 ❌ | 🧪 ❌ |  |
+| `vertical_diffusion_tendencies` | 🧪 ✅ | 🧪 ✅ |  |
+| `vertical_diffusion_wind_damping_rate` | 🧪 ✅ | 🧪 ✅ |  |
 | `wv_saturation` | ✅ | ✅ | ✅ |
 | `zm_conv_cloud_top` |  |  | 🧪 ✅ |
 | `zm_conv_convtran` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
