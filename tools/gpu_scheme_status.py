@@ -13,6 +13,11 @@ column per configuration:
       out (test_<scheme>.skipped)
   ✅  GPU-enabled and verified bit-for-bit on the GPU
   ❌  CPU only
+  ➖  scalar arguments only: every argument of the scheme's per-timestep
+      phases (timestep_init, run, timestep_final) in its .meta has
+      dimensions = () and an intrinsic type, so there is no array data to
+      put on the GPU (e.g. rrtmgp_subcycle's counter); shown instead of ❌
+      and left out of the counts
   (blank) the scheme is not in that configuration's suite
   😀  (last) optimized on the CPU and the GPU (--optimized-scheme)
 
@@ -64,7 +69,9 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PHYSICS = os.path.join(REPO, "src", "physics", "ncar_ccpp")
 DEPENDS = os.path.join(REPO, "ccs_config", "machines", "Depends.nvhpc")
 CONFIGS = ("cam4", "cam5", "cam7")
-OK, NO, TEST, OPTIMIZED = "✅", "❌", "🧪", "😀"
+OK, NO, TEST, OPTIMIZED, SCALAR = "✅", "❌", "🧪", "😀", "➖"
+PER_STEP = ("timestep_init", "run", "timestep_final")
+INTRINSIC = {"real", "integer", "logical", "character", "complex"}
 PHASES = ("register", "init", "timestep_init", "run", "timestep_final", "final")
 ONE_TIME = {"register", "init", "final"}
 
@@ -185,6 +192,45 @@ def scheme_sources(names):
     return info
 
 
+def scalar_only(name, sources):
+    """True when every argument of the scheme's per-timestep phases
+    (timestep_init, run, timestep_final), read from the .meta file next to
+    each source, has dimensions = () and an intrinsic type: no array or
+    derived-type data, so nothing for the GPU to hold. False when no such
+    phase or no .meta table is found."""
+    wanted = {f"{name}_{phase}".lower() for phase in PER_STEP}
+    found = False
+    for source in sources:
+        matches = glob.glob(os.path.join(PHYSICS, "**", os.path.splitext(source)[0] + ".meta"),
+                            recursive=True)
+        for meta in matches:
+            table, in_arg = None, False
+            for raw in open(meta, errors="replace"):
+                line = raw.strip()
+                if line.startswith("[ccpp-arg-table]") or line.startswith("[ccpp-table-properties]"):
+                    table, in_arg = None, False
+                    continue
+                if line.startswith("["):        # an argument entry: [ name ]
+                    in_arg = True
+                    continue
+                key, _, value = line.partition("=")
+                key, value = key.strip().lower(), value.strip()
+                if key == "name" and table is None:
+                    table = value.lower()
+                    continue
+                if table not in wanted or not in_arg:
+                    continue
+                found = True
+                if key == "type":
+                    arg_type = value.split("|")[0].strip().lower()
+                    if arg_type not in INTRINSIC:
+                        return False
+                elif key == "dimensions":
+                    if value.replace(" ", "") != "()":
+                        return False
+    return found
+
+
 def _run_phase_left_out(capture_dir, scheme):
     """True when the generator left the scheme's run phase out of its
     replay driver: test_<scheme>.skipped lists "<scheme>_run: ..." (e.g.
@@ -293,13 +339,18 @@ def main():
                 counts[section][config][0 if ok else 1] += 1
             else:
                 cells.append("")
+        if not ok and scalar_only(name, sources):
+            cells = [cell.replace(NO, SCALAR) for cell in cells]
+            for config in CONFIGS:
+                if name in suites[config]:
+                    counts[section][config][1] -= 1
         mark = " ¹" if name in callee_gpu and ok else ""
         sections[section].append(f"| `{name}`{mark} | " + " | ".join(cells) + " |")
 
     def header(title, section):
         cells = " | ".join(f"**{counts[section][c][0]}/{sum(counts[section][c])}**"
                            for c in CONFIGS)
-        return f"| **{title}** ({OK} / schemes) | {cells} |"
+        return f"| **{title}** ({OK} / schemes, {SCALAR} not counted) | {cells} |"
 
     table = "\n".join(
         [header("Physics schemes", "physics")] + sections["physics"]
@@ -324,6 +375,8 @@ confirmed bit-for-bit against the nvhpc CPU build.
 
 {f"- {TEST} a unit test is available (a built capture replay of the scheme)" + chr(10) if tested_units else ""}- {OK} GPU-enabled and verified bit-for-bit on the GPU
 - {NO} CPU only
+- {SCALAR} scalar arguments only: nothing to put on the GPU (no array data in
+  its per-timestep phases); not counted
 - blank: the scheme is not in that configuration's suite
 - {OPTIMIZED} optimized on the CPU and the GPU
 

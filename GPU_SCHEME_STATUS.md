@@ -7,13 +7,15 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - 🧪 a unit test is available (a built capture replay of the scheme)
 - ✅ GPU-enabled and verified bit-for-bit on the GPU
 - ❌ CPU only
+- ➖ scalar arguments only: nothing to put on the GPU (no array data in
+  its per-timestep phases); not counted
 - blank: the scheme is not in that configuration's suite
 - 😀 optimized on the CPU and the GPU
 
-Generated 2026-11-18 by `tools/gpu_scheme_status.py`
-(CAM-SIMA `673e55d`, atmospheric_physics `ef800fd`) from GPU
-tests that passed bit-for-bit against their CPU baselines: xdsl99gpu, xdsl101gpu; also verified elsewhere: `rrtmgp_inputs`, `zm_conv_cloud_top`
-(40 cases). A scheme is ✅ when its own routines carry OpenACC
+Generated 2026-11-19 by `tools/gpu_scheme_status.py`
+(CAM-SIMA `dfc765e`, atmospheric_physics `a5f0200`) from GPU
+tests that passed bit-for-bit against their CPU baselines: xdsl99gpu, xdsl101gpu, xdsl102gpu, xdsl104gpu, xdsl105gpu, xdsl106gpu; also verified elsewhere: `rrtmgp_inputs`, `zm_conv_cloud_top`
+(72 cases). A scheme is ✅ when its own routines carry OpenACC
 directives (or, for `micro_pumas_ccpp`, the package it calls runs on the GPU), its
 object is compiled with OpenACC (`ccs_config/machines/Depends.nvhpc`), and it
 runs in one of those tests. Verification is per scheme, so a scheme verified in
@@ -22,7 +24,7 @@ come from the cam4 and FPHYStest runs.
 
 | Scheme | cam4 | cam5 | cam7 |
 |---|:---:|:---:|:---:|
-| **Physics schemes** (✅ / schemes) | **75/108** | **73/98** | **56/88** |
+| **Physics schemes** (✅ / schemes, ➖ not counted) | **96/106** | **80/96** | **63/87** |
 | `aerosol_optics` | ❌ |  | ❌ |
 | `apply_constituent_tendencies` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `apply_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
@@ -41,9 +43,9 @@ come from the cam4 and FPHYStest runs.
 | `check_energy_scaling` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `check_energy_zero_fluxes` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `clamp_number_concentrations` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `cloud_condensate_floor` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `cloud_condensate_floor` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `cloud_fraction_fice` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `cloud_particle_sedimentation` | ❌ |  |  |
+| `cloud_particle_sedimentation` | 🧪 ✅ |  |  |
 | `cloud_water_paths` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
 | `compute_cloud_fraction` | 🧪 ✅ | 🧪 ✅ |  |
 | `compute_cloud_fraction_two_moment` |  | ❌ | ❌ |
@@ -62,12 +64,13 @@ come from the cam4 and FPHYStest runs.
 | `dycore_energy_consistency_adjust` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `eddy_diffusivity_adjustment_above_pbl` |  | 🧪 ✅ |  |
 | `geopotential_temp` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `gravity_wave_drag_common` | ❌ | ❌ | ❌ |
+| `gravity_wave_drag_common` | ✅ | ✅ | ✅ |
 | `gravity_wave_drag_convection_deep` |  |  | 🧪 ❌ |
 | `gravity_wave_drag_frontogenesis` |  |  | 🧪 ❌ |
 | `gravity_wave_drag_moving_mountain` |  |  | 🧪 ❌ |
-| `gravity_wave_drag_orographic` | ❌ | ❌ |  |
-| `gravity_wave_drag_prepare_profiles` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `gravity_wave_drag_orographic` | 🧪 ✅ | 🧪 ✅ |  |
+| `gravity_wave_drag_prepare_profiles` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
+| `gravity_wave_drag_pressure_coordinates` |  |  | ❌ |
 | `gravity_wave_drag_ridge_beta` |  |  | 🧪 ❌ |
 | `hack_convect_shallow` | 🧪 ✅ |  |  |
 | `hb_diff_exchange_coefficients` | 🧪 ✅ |  |  |
@@ -83,27 +86,27 @@ come from the cam4 and FPHYStest runs.
 | `ndrop_bam_ccpp` |  | ❌ | ❌ |
 | `nucleate_ice_ccpp` |  | ❌ | ❌ |
 | `prescribe_lower_boundary_conditions` | ❌ |  |  |
-| `prescribe_radiative_gas_concentrations` | ❌ | ❌ | ❌ |
-| `prescribe_radiative_gas_vertical_profiles` | ❌ |  |  |
+| `prescribe_radiative_gas_concentrations` | ✅ | ✅ | ✅ |
+| `prescribe_radiative_gas_vertical_profiles` | 🧪 ✅ |  |  |
 | `prescribed_aerosol_deposition_flux` | ❌ |  | ❌ |
-| `prescribed_aerosols` | ❌ | ❌ | ❌ |
-| `prescribed_ozone` | ❌ | ❌ | ❌ |
-| `prescribed_volcanic_aerosol` | ❌ |  | ❌ |
-| `prognostic_cloud_water` | 🧪 ❌ |  |  |
+| `prescribed_aerosols` | ✅ | ✅ | ✅ |
+| `prescribed_ozone` | ✅ | ✅ | ✅ |
+| `prescribed_volcanic_aerosol` | ✅ |  | ✅ |
+| `prognostic_cloud_water` | 🧪 ✅ |  |  |
 | `pumas_post_main` |  | 🧪 ✅ | 🧪 ✅ |
 | `qneg` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rebin_seasalt` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rk_stratiform_check_qtlcwat` | ❌ |  |  |
-| `rk_stratiform_cloud_fraction_perturbation` | ❌ |  |  |
-| `rk_stratiform_cloud_optical_properties` | ❌ |  |  |
-| `rk_stratiform_condensate_repartioning` | ❌ |  |  |
-| `rk_stratiform_detrain_convective_condensate` | ❌ |  |  |
-| `rk_stratiform_external_forcings` | ❌ |  |  |
+| `rk_stratiform_check_qtlcwat` | 🧪 ✅ |  |  |
+| `rk_stratiform_cloud_fraction_perturbation` | 🧪 ✅ |  |  |
+| `rk_stratiform_cloud_optical_properties` | 🧪 ✅ |  |  |
+| `rk_stratiform_condensate_repartioning` | 🧪 ✅ |  |  |
+| `rk_stratiform_detrain_convective_condensate` | 🧪 ✅ |  |  |
+| `rk_stratiform_external_forcings` | 🧪 ✅ |  |  |
 | `rk_stratiform_prepare_flux_for_check_energy` | 🧪 ✅ |  |  |
-| `rk_stratiform_prognostic_cloud_water_tendencies` | ❌ |  |  |
-| `rk_stratiform_pumas_optics_inputs` | ❌ |  |  |
-| `rk_stratiform_save_qtlcwat` | ❌ |  |  |
-| `rk_stratiform_sedimentation` | ❌ |  |  |
+| `rk_stratiform_prognostic_cloud_water_tendencies` | 🧪 ✅ |  |  |
+| `rk_stratiform_pumas_optics_inputs` | ✅ |  |  |
+| `rk_stratiform_save_qtlcwat` | 🧪 ✅ |  |  |
+| `rk_stratiform_sedimentation` | 🧪 ✅ |  |  |
 | `rrtmgp_constituents` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_dry_static_energy_tendency` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_inputs` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
@@ -117,7 +120,7 @@ come from the cam4 and FPHYStest runs.
 | `rrtmgp_lw_rte` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_post` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_pre` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
-| `rrtmgp_subcycle` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `rrtmgp_subcycle` | 🧪 ➖ | 🧪 ➖ | 🧪 ➖ |
 | `rrtmgp_sw_aerosols` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_sw_calculate_fluxes` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_sw_calculate_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
@@ -127,7 +130,7 @@ come from the cam4 and FPHYStest runs.
 | `rrtmgp_sw_mcica_subcol_gen` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_sw_rte` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_sw_solar_var` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_variables` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `rrtmgp_variables` | 🧪 ➖ | 🧪 ➖ | 🧪 ➖ |
 | `save_core_tend_from_convect_deep` |  |  | 🧪 ❌ |
 | `save_ttend_from_convect_deep` |  |  | ❌ |
 | `scale_subgrid_vertical_velocity` |  | 🧪 ❌ | 🧪 ❌ |
@@ -160,7 +163,7 @@ come from the cam4 and FPHYStest runs.
 | `zm_conv_momtran` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `zm_convr` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `zm_prepare_flux_for_check_energy` | 🧪 ✅ |  | 🧪 ✅ |
-| **Register/init/final-only schemes** (✅ / schemes) | **1/13** | **1/13** | **1/12** |
+| **Register/init/final-only schemes** (✅ / schemes, ➖ not counted) | **1/13** | **1/13** | **1/12** |
 | `cloud_fraction_options` | ❌ | ❌ | ❌ |
 | `clubb_stub` |  |  | ❌ |
 | `gravity_wave_drag_ridge` |  |  | ❌ |
@@ -179,12 +182,12 @@ come from the cam4 and FPHYStest runs.
 | `vertical_diffusion_options` | ❌ | ❌ |  |
 | `zero_upper_boundary_condition` | ❌ | ❌ |  |
 | `zm_conv_options` | ❌ | ❌ | ❌ |
-| **Diagnostics schemes** (✅ / schemes) | **0/34** | **0/22** | **0/27** |
+| **Diagnostics schemes** (✅ / schemes, ➖ not counted) | **0/33** | **0/21** | **0/26** |
 | `aerosol_optics_diagnostics` | ❌ |  | ❌ |
 | `beljaars_drag_diagnostics` |  | ❌ | ❌ |
 | `bretherton_park_diff_diagnostics` |  | ❌ |  |
 | `check_energy_fix_diagnostics` |  |  | ❌ |
-| `check_energy_gmean_diagnostics` | ❌ | ❌ | ❌ |
+| `check_energy_gmean_diagnostics` | ➖ | ➖ | ➖ |
 | `cloud_cover_diagnostics` | ❌ |  |  |
 | `cloud_particle_sedimentation_diagnostics` | ❌ |  |  |
 | `cloud_water_paths_diagnostics` | ❌ | ❌ | ❌ |
