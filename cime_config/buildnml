@@ -22,7 +22,7 @@ from CIME.Tools.standard_script_setup import *
 from CIME.XML.standard_module_setup   import *
 from CIME.buildnml                    import create_namelist_infile, parse_input
 from CIME.case                        import Case
-from CIME.utils                       import expect, symlink_force
+from CIME.utils                       import CIMEError, expect, symlink_force
 
 # Save local (cime_config) directory path:
 _CIME_CONFIG_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -32,6 +32,7 @@ sys.path.append(_CIME_CONFIG_PATH)
 
 # Import CAM's configure structure:
 from cam_config import ConfigCAM
+from cam_autogen import CamAutoGenError
 # HistoryConfig allows translation from user_nl_cam into Fortran namelists
 from hist_config import HistoryConfig
 
@@ -167,8 +168,14 @@ def buildnml(case, caseroot, compname):
     #Set number of spaces used to indicate scope in generated code:
     gen_indent = 3
 
-    #Generate model code and meta-data:
-    scheme_names = config.generate_cam_src(gen_indent)
+    #Generate model code and meta-data. A generation error is the
+    #user's input, not a CIME problem: CIMEError makes CIME report its
+    #message without a Python traceback.
+    try:
+        scheme_names = config.generate_cam_src(gen_indent)
+    except CamAutoGenError as err:
+        raise CIMEError(str(err)) from None
+    # end try
 
     #----------------------------------------------------------------
     # Create namelist attribute dictionary (to set namelist defaults):

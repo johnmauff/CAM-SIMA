@@ -1,0 +1,12 @@
+# GPU counterpart of the included CPU testmod: same configuration, built
+# for the GPU. Judged only by comparison with the nvhpc CPU test (cs.status
+# COMPARE_cpu_gpu, history files, zero tolerance), so the physics-check
+# snapshot test inherited from the CPU testmod is removed (it runs after
+# the included testmods have written user_nl_cam).
+./xmlchange GPU_TYPE=a100
+./xmlchange OPENACC_GPU_OFFLOAD=TRUE
+./xmlchange OVERSUBSCRIBE_GPU=TRUE
+./xmlchange NGPUS_PER_NODE=4
+# One Derecho GPU node, 6 MPI ranks per GPU (4 x 6 = 24), as for every GPU test.
+./xmlchange NTASKS=24,NTHRDS=1,ROOTPE=0
+sed -i -e '/^ *ncdata_check[a-z_]* *=/{:a;/, *$/{N;ba};d}' -e '/^ *min_difference *=/d' user_nl_cam

@@ -167,12 +167,21 @@ def _main_prog():
 
     ghub = Github(token)
 
-    #++++++++++++++++++++
-    #Open ESCOMP/CAM repo
-    #++++++++++++++++++++
+    #+++++++++++++++++++++++++++++++++++++++++++++
+    #Open the repo this workflow is running against
+    #+++++++++++++++++++++++++++++++++++++++++++++
 
-    #Official CAM repo:
-    cam_repo = ghub.get_repo("ESCOMP/CAM-SIMA")
+    #GITHUB_REPOSITORY is set automatically by GitHub Actions to
+    #"<owner>/<repo>" for whichever repo triggered the workflow. Using it
+    #instead of a hardcoded repo name means this script also works when
+    #a pull request is opened against a personal fork rather than the
+    #canonical ESCOMP/CAM-SIMA repo -- a hardcoded name would look up a
+    #pull request number that only exists in the fork, not upstream,
+    #and fail with a 404. Falls back to the canonical repo if the
+    #variable is unset (e.g., running this script manually outside of
+    #GitHub Actions).
+    repo_name = os.environ.get("GITHUB_REPOSITORY", "ESCOMP/CAM-SIMA")
+    cam_repo = ghub.get_repo(repo_name)
 
     #++++++++++++++++++++++++++++++++++++++++++
     #Open Pull Request which triggered workflow
