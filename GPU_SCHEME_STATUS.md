@@ -12,10 +12,10 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - blank: the scheme is not in that configuration's suite
 - 😀 optimized on the CPU and the GPU
 
-Generated 2026-11-19 by `tools/gpu_scheme_status.py`
-(CAM-SIMA `dfc765e`, atmospheric_physics `a5f0200`) from GPU
-tests that passed bit-for-bit against their CPU baselines: xdsl99gpu, xdsl101gpu, xdsl102gpu, xdsl104gpu, xdsl105gpu, xdsl106gpu; also verified elsewhere: `rrtmgp_inputs`, `zm_conv_cloud_top`
-(72 cases). A scheme is ✅ when its own routines carry OpenACC
+Generated 2026-11-20 by `tools/gpu_scheme_status.py`
+(CAM-SIMA `ca30e9a`, atmospheric_physics `469a00b`) from GPU
+tests that passed bit-for-bit against their CPU baselines: xdsl99gpu, xdsl101gpu, xdsl102gpu, xdsl104gpu, xdsl105gpu, xdsl106gpu, xdsl107gpu, xdsl108gpu, xdsl109gpu, xdsl110gpu, xdsl111gpu, xdsl112gpu, xdsl113gpu, xdsl114gpu, xdsl115gpu, xdsl117gpu; also verified elsewhere: `rrtmgp_inputs`, `zm_conv_cloud_top`
+(209 cases). A scheme is ✅ when its own routines carry OpenACC
 directives (or, for `micro_pumas_ccpp`, the package it calls runs on the GPU), its
 object is compiled with OpenACC (`ccs_config/machines/Depends.nvhpc`), and it
 runs in one of those tests. Verification is per scheme, so a scheme verified in
@@ -24,7 +24,7 @@ come from the cam4 and FPHYStest runs.
 
 | Scheme | cam4 | cam5 | cam7 |
 |---|:---:|:---:|:---:|
-| **Physics schemes** (✅ / schemes, ➖ not counted) | **96/106** | **80/96** | **63/87** |
+| **Physics schemes** (✅ / schemes, ➖ not counted) | **102/106** | **88/96** | **72/87** |
 | `aerosol_optics` | ❌ |  | ❌ |
 | `apply_constituent_tendencies` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `apply_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
@@ -36,9 +36,9 @@ come from the cam4 and FPHYStest runs.
 | `bretherton_park_diff` |  | 🧪 ❌ |  |
 | `calc_dry_air_ideal_gas_density` | 🧪 ✅ | 🧪 ✅ |  |
 | `calculate_net_heating` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `check_energy_chng` | ❌ | ❌ | ❌ |
+| `check_energy_chng` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `check_energy_fix` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `check_energy_gmean` | ❌ | ❌ | ❌ |
+| `check_energy_gmean` | ✅ | ✅ | ✅ |
 | `check_energy_save_teout` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `check_energy_scaling` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `check_energy_zero_fluxes` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
@@ -46,21 +46,21 @@ come from the cam4 and FPHYStest runs.
 | `cloud_condensate_floor` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `cloud_fraction_fice` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `cloud_particle_sedimentation` | 🧪 ✅ |  |  |
-| `cloud_water_paths` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `cloud_water_paths` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `compute_cloud_fraction` | 🧪 ✅ | 🧪 ✅ |  |
 | `compute_cloud_fraction_two_moment` |  | ❌ | ❌ |
 | `compute_kinematic_fluxes_and_obklen` | 🧪 ✅ | 🧪 ✅ |  |
 | `compute_relative_humidity` |  |  | ❌ |
-| `compute_subgrid_vertical_velocity_clubb` |  |  | 🧪 ❌ |
+| `compute_subgrid_vertical_velocity_clubb` |  |  | 🧪 ✅ |
 | `compute_subgrid_vertical_velocity_tke` |  | ❌ |  |
-| `compute_total_precipitation_rate` |  |  | 🧪 ❌ |
+| `compute_total_precipitation_rate` |  |  | 🧪 ✅ |
 | `convect_shallow_sum_to_deep` | 🧪 ✅ |  |  |
 | `convective_cloud_cover` | 🧪 ✅ |  |  |
-| `convective_cloud_water` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `convective_cloud_water` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `convert_dry_constituent_tendencies_to_dry_air_basis` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `dadadj` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `dropmixnuc_apply_surface_fluxes` |  | 🧪 ✅ |  |
-| `dust_default_radii` |  | 🧪 ❌ | 🧪 ❌ |
+| `dust_default_radii` |  | 🧪 ✅ | 🧪 ✅ |
 | `dycore_energy_consistency_adjust` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `eddy_diffusivity_adjustment_above_pbl` |  | 🧪 ✅ |  |
 | `geopotential_temp` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
@@ -74,7 +74,7 @@ come from the cam4 and FPHYStest runs.
 | `gravity_wave_drag_ridge_beta` |  |  | 🧪 ❌ |
 | `hack_convect_shallow` | 🧪 ✅ |  |  |
 | `hb_diff_exchange_coefficients` | 🧪 ✅ |  |  |
-| `hb_diff_prepare_vertical_diffusion_inputs` | ❌ | ❌ |  |
+| `hb_diff_prepare_vertical_diffusion_inputs` | ✅ | ✅ |  |
 | `hb_pbl_dependent_coefficients` | 🧪 ✅ |  |  |
 | `hb_pbl_independent_coefficients` | 🧪 ✅ |  |  |
 | `implicit_surface_stress_add_drag_coefficient` | 🧪 ✅ | 🧪 ✅ |  |
@@ -119,7 +119,7 @@ come from the cam4 and FPHYStest runs.
 | `rrtmgp_lw_mcica_subcol_gen` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_lw_rte` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_post` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
-| `rrtmgp_pre` | 🧪 ❌ | 🧪 ❌ | 🧪 ❌ |
+| `rrtmgp_pre` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_subcycle` | 🧪 ➖ | 🧪 ➖ | 🧪 ➖ |
 | `rrtmgp_sw_aerosols` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `rrtmgp_sw_calculate_fluxes` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
@@ -133,7 +133,7 @@ come from the cam4 and FPHYStest runs.
 | `rrtmgp_variables` | 🧪 ➖ | 🧪 ➖ | 🧪 ➖ |
 | `save_core_tend_from_convect_deep` |  |  | 🧪 ❌ |
 | `save_ttend_from_convect_deep` |  |  | ❌ |
-| `scale_subgrid_vertical_velocity` |  | 🧪 ❌ | 🧪 ❌ |
+| `scale_subgrid_vertical_velocity` |  | 🧪 ✅ | 🧪 ✅ |
 | `set_deep_conv_fluxes_to_general` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `set_general_conv_fluxes_to_deep` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `set_general_conv_fluxes_to_shallow` | 🧪 ✅ |  |  |
