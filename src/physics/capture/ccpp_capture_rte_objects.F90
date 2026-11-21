@@ -1004,6 +1004,9 @@ contains
       real(kind_phys), pointer, intent(in)    :: actual(:,:)
 
       if (associated(actual)) then
+         ! A scheme may leave a flux component on the device only (rrtmgp_pre
+         ! creates the band-by-band fluxes there); compare its device values.
+         !$acc update self(actual) if_present
          call compare_r8_2d(path, label, comp, tolerance, call_count, n_failed, actual)
       else
          call compare_missing(path, label, comp, 2, call_count, n_failed)
@@ -1018,6 +1021,9 @@ contains
       real(kind_phys), pointer, intent(in)    :: actual(:,:,:)
 
       if (associated(actual)) then
+         ! A scheme may leave a flux component on the device only (rrtmgp_pre
+         ! creates the band-by-band fluxes there); compare its device values.
+         !$acc update self(actual) if_present
          call compare_r8_3d(path, label, comp, tolerance, call_count, n_failed, actual)
       else
          call compare_missing(path, label, comp, 3, call_count, n_failed)
