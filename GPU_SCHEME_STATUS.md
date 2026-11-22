@@ -12,10 +12,10 @@ confirmed bit-for-bit against the nvhpc CPU build.
 - blank: the scheme is not in that configuration's suite
 - 😀 optimized on the CPU and the GPU
 
-Generated 2026-11-20 by `tools/gpu_scheme_status.py`
-(CAM-SIMA `ca30e9a`, atmospheric_physics `469a00b`) from GPU
-tests that passed bit-for-bit against their CPU baselines: xdsl99gpu, xdsl101gpu, xdsl102gpu, xdsl104gpu, xdsl105gpu, xdsl106gpu, xdsl107gpu, xdsl108gpu, xdsl109gpu, xdsl110gpu, xdsl111gpu, xdsl112gpu, xdsl113gpu, xdsl114gpu, xdsl115gpu, xdsl117gpu; also verified elsewhere: `rrtmgp_inputs`, `zm_conv_cloud_top`
-(209 cases). A scheme is ✅ when its own routines carry OpenACC
+Generated 2026-11-21 by `tools/gpu_scheme_status.py`
+(CAM-SIMA `68fc1c4`, atmospheric_physics `28c4f6b`) from GPU
+tests that passed bit-for-bit against their CPU baselines: xdsl99gpu, xdsl101gpu, xdsl102gpu, xdsl104gpu, xdsl105gpu, xdsl106gpu, xdsl107gpu, xdsl108gpu, xdsl109gpu, xdsl110gpu, xdsl111gpu, xdsl112gpu, xdsl113gpu, xdsl114gpu, xdsl115gpu, xdsl117gpu, xdsl118gpu, xdsl119gpu, xdsl120gpu, xdsl121gpu, xdsl122gpu, xdsl124gpu; also verified elsewhere: `rrtmgp_inputs`, `zm_conv_cloud_top`
+(278 cases). A scheme is ✅ when its own routines carry OpenACC
 directives (or, for `micro_pumas_ccpp`, the package it calls runs on the GPU), its
 object is compiled with OpenACC (`ccs_config/machines/Depends.nvhpc`), and it
 runs in one of those tests. Verification is per scheme, so a scheme verified in
@@ -24,8 +24,8 @@ come from the cam4 and FPHYStest runs.
 
 | Scheme | cam4 | cam5 | cam7 |
 |---|:---:|:---:|:---:|
-| **Physics schemes** (✅ / schemes, ➖ not counted) | **102/106** | **88/96** | **72/87** |
-| `aerosol_optics` | ❌ |  | ❌ |
+| **Physics schemes** (✅ / schemes, ➖ not counted) | **103/106** | **88/96** | **72/87** |
+| `aerosol_optics` |  |  | ❌ |
 | `apply_constituent_tendencies` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `apply_heating_rate` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `apply_tendency_of_air_temperature` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
@@ -34,6 +34,7 @@ come from the cam4 and FPHYStest runs.
 | `beljaars_add_wind_damping_rate` |  | ❌ |  |
 | `beljaars_drag` |  | 🧪 ✅ | 🧪 ✅ |
 | `bretherton_park_diff` |  | 🧪 ❌ |  |
+| `bulk_aerosol_optics` | 🧪 ✅ |  |  |
 | `calc_dry_air_ideal_gas_density` | 🧪 ✅ | 🧪 ✅ |  |
 | `calculate_net_heating` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `check_energy_chng` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
@@ -149,7 +150,7 @@ come from the cam4 and FPHYStest runs.
 | `vertical_diffusion_diffuse_tracers` | 🧪 ✅ | 🧪 ✅ |  |
 | `vertical_diffusion_interpolate_to_interfaces` | 🧪 ✅ | 🧪 ✅ |  |
 | `vertical_diffusion_prepare_inputs` | 🧪 ✅ | 🧪 ✅ |  |
-| `vertical_diffusion_pressure_coordinates` |  | ❌ |  |
+| `vertical_diffusion_pressure_coordinates` |  | 🧪 ❌ |  |
 | `vertical_diffusion_set_dry_static_energy_at_toa_zero` | 🧪 ✅ | 🧪 ✅ |  |
 | `vertical_diffusion_set_temperature_at_toa_default` | 🧪 ✅ | 🧪 ✅ |  |
 | `vertical_diffusion_set_total_surface_stress` | 🧪 ✅ | 🧪 ✅ |  |
@@ -163,7 +164,9 @@ come from the cam4 and FPHYStest runs.
 | `zm_conv_momtran` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `zm_convr` | 🧪 ✅ | 🧪 ✅ | 🧪 ✅ |
 | `zm_prepare_flux_for_check_energy` | 🧪 ✅ |  | 🧪 ✅ |
-| **Register/init/final-only schemes** (✅ / schemes, ➖ not counted) | **1/13** | **1/13** | **1/12** |
+| **Register/init/final-only schemes** (✅ / schemes, ➖ not counted) | **1/15** | **1/13** | **1/12** |
+| `bulk_aerosol_optics_sizes` | ❌ |  |  |
+| `bulk_aerosol_optics_tables` | ❌ |  |  |
 | `cloud_fraction_options` | ❌ | ❌ | ❌ |
 | `clubb_stub` |  |  | ❌ |
 | `gravity_wave_drag_ridge` |  |  | ❌ |
