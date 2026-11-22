@@ -42,6 +42,7 @@ from resolved_var_capgen import Capgenv1ResolvedVars
 # resolved_var_xdsl_ccpp.py isn't imported here -- it pulls in xdsl_ccpp,
 # an optional dependency capgen builds must not require. Imported lazily
 # in generate_init_routines() only when xdsl_ccpp is actually selected.
+from write_restart_physics import write_restart_physics
 
 ###############################################################################
 
@@ -617,7 +618,7 @@ def generate_registry(data_search, build_cache, atm_root, bldroot,
                                    gen_fort_indent, source_mods_dir, atm_root,
                                    logger=_LOGGER, schema_paths=data_search,
                                    error_on_no_validate=True)
-            retcode, reg_file_list, ic_names, registry_constituents, vars_init_value = retvals
+            retcode, reg_file_list, ic_names, registry_constituents, restart_vars, vars_init_value = retvals
             # Raise error if gen_registry failed:
             if retcode != 0:
                 emsg = "ERROR:Unable to generate CAM data structures from {}, err = {}"
@@ -634,16 +635,17 @@ def generate_registry(data_search, build_cache, atm_root, bldroot,
         reg_file_paths = list(dict.fromkeys(
             x.file_path for x in reg_file_list if x.file_path))
         build_cache.update_registry(gen_reg_file, registry_files, dycore,
-                                    reg_file_paths, ic_names, registry_constituents, vars_init_value)
+                                    reg_file_paths, ic_names, registry_constituents, restart_vars, vars_init_value)
     else:
         # If we did not run the registry generator, retrieve info from cache
         reg_file_paths = build_cache.reg_file_list()
         ic_names = build_cache.ic_names()
         registry_constituents = build_cache.constituents()
+        restart_vars = build_cache.restart_vars()
         vars_init_value = build_cache.vars_init_value()
     # End if
 
-    return genreg_dir, do_gen_registry, reg_file_paths, ic_names, registry_constituents, vars_init_value
+    return genreg_dir, do_gen_registry, reg_file_paths, ic_names, registry_constituents, restart_vars, vars_init_value
 
 ###############################################################################
 def _xdsl_capture_settings(genccpp_dir, case_values=None):
@@ -1340,6 +1342,59 @@ def generate_physics_suites(build_cache, preproc_defs, host_name,
         xml_files.values(), capgen_db, scheme_names
 
 ###############################################################################
+def _resolved_vars_adapter(cap_database, ccpp_generator, bldroot, xdsl_python):
+###############################################################################
+    """
+    The backend-neutral ResolvedVar adapter (see resolved_var.py) that
+    write_init_files() and write_restart_physics() consume:
+    <cap_database> is capgen's CCPPDatabaseObj, or for <ccpp_generator>
+    'xdsl_ccpp' the path of its resolved-variables JSON file.
+    <xdsl_python> is the case's XDSL_CCPP_PYTHON (see _resolve_xdsl_python).
+    """
+    if ccpp_generator == "xdsl_ccpp":
+        # Deferred import (see note at top of file); _REG_GEN_DIR was
+        # removed from sys.path after this file's own imports, so it's
+        # restored here just for this one.
+        #
+        # PBS jobs don't inherit the venv; ask the xdsl_ccpp interpreter
+        # (see _resolve_xdsl_python) for xdsl_ccpp's paths.
+        try:
+            import xdsl_ccpp as _xdsl_ccpp_probe  # noqa: F401
+            del _xdsl_ccpp_probe
+        except ImportError:
+            _xdsl_python = _resolve_xdsl_python(
+                os.path.join(bldroot, "ccpp"), xdsl_python)
+            if _xdsl_python != sys.executable:
+                import subprocess as _sp
+                # Use __path__[0] instead of __file__ because editable
+                # installs expose xdsl_ccpp as a namespace package with
+                # __file__ = None; __path__[0] is always the real dir.
+                _probe_script = (
+                    "import os, xdsl_ccpp, xdsl\n"
+                    "xc = list(xdsl_ccpp.__path__)[0]\n"
+                    "xx = list(xdsl.__path__)[0]\n"
+                    "print(os.path.dirname(xc))\n"
+                    "print(os.path.dirname(xx))\n"
+                )
+                _probe_out = _sp.check_output(
+                    [_xdsl_python, "-c", _probe_script], text=True
+                ).strip().split("\n")
+                for _p in _probe_out:
+                    if _p and _p not in sys.path:
+                        sys.path.insert(0, _p)
+            # end if
+        # end try
+        sys.path.append(_REG_GEN_DIR)
+        #pylint: disable=import-outside-toplevel
+        # Deliberately deferred (see comment above) -- not a style lapse.
+        from resolved_var_xdsl_ccpp import XdslCcppResolvedVars
+        #pylint: enable=import-outside-toplevel
+        sys.path.remove(_REG_GEN_DIR)
+        return XdslCcppResolvedVars(cap_database)
+    # end if
+    return Capgenv1ResolvedVars(cap_database)
+
+###############################################################################
 def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
                            source_mods_dir, gen_fort_indent,
                            cap_database, ic_names, registry_constituents,
@@ -1388,49 +1443,8 @@ def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
         source_paths = [source_mods_dir, _REG_GEN_DIR]
         # write_init_files() consumes a backend-neutral ResolvedVar adapter
         # (see resolved_var.py), not a raw CCPPDatabaseObj.
-        if ccpp_generator == "xdsl_ccpp":
-            # Deferred import (see note at top of file); _REG_GEN_DIR was
-            # removed from sys.path after this file's own imports, so it's
-            # restored here just for this one.
-            #
-            # PBS jobs don't inherit the venv; ask the xdsl_ccpp interpreter
-            # (see _resolve_xdsl_python) for xdsl_ccpp's paths.
-            try:
-                import xdsl_ccpp as _xdsl_ccpp_probe  # noqa: F401
-                del _xdsl_ccpp_probe
-            except ImportError:
-                _xdsl_python = _resolve_xdsl_python(
-                    os.path.join(bldroot, "ccpp"), xdsl_python)
-                if _xdsl_python != sys.executable:
-                    import subprocess as _sp
-                    # Use __path__[0] instead of __file__ because editable
-                    # installs expose xdsl_ccpp as a namespace package with
-                    # __file__ = None; __path__[0] is always the real dir.
-                    _probe_script = (
-                        "import os, xdsl_ccpp, xdsl\n"
-                        "xc = list(xdsl_ccpp.__path__)[0]\n"
-                        "xx = list(xdsl.__path__)[0]\n"
-                        "print(os.path.dirname(xc))\n"
-                        "print(os.path.dirname(xx))\n"
-                    )
-                    _probe_out = _sp.check_output(
-                        [_xdsl_python, "-c", _probe_script], text=True
-                    ).strip().split("\n")
-                    for _p in _probe_out:
-                        if _p and _p not in sys.path:
-                            sys.path.insert(0, _p)
-                # end if
-            # end try
-            sys.path.append(_REG_GEN_DIR)
-            #pylint: disable=import-outside-toplevel
-            # Deliberately deferred (see comment above) -- not a style lapse.
-            from resolved_var_xdsl_ccpp import XdslCcppResolvedVars
-            #pylint: enable=import-outside-toplevel
-            sys.path.remove(_REG_GEN_DIR)
-            resolved_vars = XdslCcppResolvedVars(cap_database)
-        else:
-            resolved_vars = Capgenv1ResolvedVars(cap_database)
-        # end if
+        resolved_vars = _resolved_vars_adapter(cap_database, ccpp_generator,
+                                               bldroot, xdsl_python)
         retmsg = write_init_files(resolved_vars, ic_names, registry_constituents, vars_init_value,
                                   init_dir, _find_file, source_paths,
                                   gen_fort_indent, _LOGGER)
@@ -1447,6 +1461,59 @@ def generate_init_routines(build_cache, bldroot, force_ccpp, force_init,
     # End if
 
     return init_dir
+
+###############################################################################
+def generate_restart_routines(build_cache, bldroot, force_ccpp, force_restart,
+                              gen_fort_indent, cap_database, registry_constituents,
+                              restart_vars, ccpp_generator="capgen",
+                              xdsl_python=""):
+###############################################################################
+    """
+    Generate the physics restart routines (restart_physics.F90) using
+    both the registry and the CCPP physics suites if required
+    (new case or changes to registry or CCPP source(s), meta-data,
+    and/or script).
+
+    <ccpp_generator> and <xdsl_python> select the ResolvedVar adapter
+    for <cap_database>, as in generate_init_routines.
+    """
+
+    #Add new directory to build path:
+    restart_dir = os.path.join(bldroot, "phys_restart")
+    # Use this for cache check
+    gen_restart_file = os.path.join(_REG_GEN_DIR, "write_restart_physics.py")
+
+    # Figure out if we need to generate new restart routines:
+    if os.path.exists(restart_dir):
+        # Check if registry and / or CCPP suites were modified:
+        if force_ccpp or force_restart:
+            do_gen_restart = True
+        else:
+            #If not, then check cache to see if actual
+            #"restart_physics.py" was modified:
+            do_gen_restart = build_cache.restart_write_mismatch(gen_restart_file)
+    else:
+        #If no directory exists, then one will need
+        # to create new routines:
+        os.mkdir(restart_dir)
+        do_gen_restart = True
+    # End if
+    if do_gen_restart:
+        resolved_vars = _resolved_vars_adapter(cap_database, ccpp_generator,
+                                               bldroot, xdsl_python)
+        retmsg = write_restart_physics(resolved_vars, registry_constituents, restart_vars,
+                                       restart_dir, gen_fort_indent, _LOGGER)
+
+        #Check that script ran properly
+        if retmsg:
+            emsg = f"ERROR: Unable to generate CAM restart source code, error message is:\n{retmsg}"
+            raise CamAutoGenError(emsg)
+        #-----
+
+        # save build details in the build cache
+        build_cache.update_restart_gen(gen_restart_file)
+
+    return restart_dir
 
 #############
 # End of file

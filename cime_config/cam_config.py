@@ -34,6 +34,7 @@ from cam_autogen import generate_registry, generate_physics_suites
 from cam_autogen import generate_init_routines
 from cam_autogen import _xdsl_capture_settings, _xdsl_capture_ranks
 from cam_autogen import write_capture_compile_flags
+from cam_autogen import generate_restart_routines
 
 ###############################################################################
 #HELPER FUNCTIONS
@@ -929,7 +930,7 @@ class ConfigCAM:
         retvals = generate_registry(data_search, build_cache, self.__atm_root,
                                     self.__bldroot, source_mods_dir,
                                     dyn, gen_fort_indent)
-        reg_dir, force_ccpp, reg_files, ic_names, registry_constituents, vars_init_value = retvals
+        reg_dir, force_ccpp, reg_files, ic_names, registry_constituents, restart_vars, vars_init_value = retvals
 
         #Add registry path to config object:
         reg_dir_desc = "Location of auto-generated registry code."
@@ -975,9 +976,23 @@ class ConfigCAM:
                                           vars_init_value, self.__ccpp_generator,
                                           xdsl_python=self.__xdsl_python)
 
-        #Add registry path to config object:
+        #Add physics initialization directory path to config object:
         init_dir_desc = "Location of auto-generated physics initialization code."
         self.create_config("init_dir", init_dir_desc, init_dir)
+
+        #---------------------------------------------------------
+        # Create restart init/write/read routines
+        #---------------------------------------------------------
+        restart_dir = generate_restart_routines(build_cache, self.__bldroot,
+                                                force_ccpp, force_init,
+                                                gen_fort_indent, resolved_vars_source,
+                                                registry_constituents, restart_vars,
+                                                self.__ccpp_generator,
+                                                xdsl_python=self.__xdsl_python)
+
+        #Add physics restart directory path to config object:
+        restart_dir_desc = "Location of auto-generated physics restart code."
+        self.create_config("restart_dir", restart_dir_desc, restart_dir)
 
         #--------------------------------------------------------------
         # write out the cache here as we have completed pre-processing
