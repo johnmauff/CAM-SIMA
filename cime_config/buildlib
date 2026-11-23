@@ -12,6 +12,7 @@ import subprocess
 import logging
 
 from cam_config import ConfigCAM # CAM's configure structure
+from cam_autogen import CamAutoGenError
 from atm_musica_config import MUSICA_CCPP_SCHEME_NAME, MUSICA_CONFIG_DIR_NAME
 from atm_musica_config import MUSICA_REPO_URL, MUSICA_TAG
 from atm_musica_config import CHEMISTRY_DATA_REPO_URL, CHEMISTRY_DATA_TAG
@@ -26,7 +27,7 @@ sys.path.append(os.path.join(__CIMEROOT, "CIME", "Tools"))
 #pylint: disable=wrong-import-position
 # CIME imports
 from CIME.case import Case
-from CIME.utils import run_cmd, expect
+from CIME.utils import CIMEError, run_cmd, expect
 from CIME.utils import stop_buffering_output
 from CIME.buildlib import parse_input
 from CIME.build import get_standard_makefile_args
@@ -78,8 +79,13 @@ def _build_cam():
 
         # Re-run source generator in case registry, CCPP suites, or
         # generator scripts have been modified, and
-        # to extract required source code paths:
-        scheme_names = config.generate_cam_src(gen_indent)
+        # to extract required source code paths. A generation error is
+        # reported without a traceback (CIMEError), as in buildnml:
+        try:
+            scheme_names = config.generate_cam_src(gen_indent)
+        except CamAutoGenError as err:
+            raise CIMEError(str(err)) from None
+        # end try
 
         dycore = config.get_value('dyn')
         reg_dir = config.get_value('reg_dir')
@@ -207,6 +213,13 @@ def _build_cam():
         retcode, out, err = run_cmd(cmd)
         _LOGGER.info("Command %s:\n\nstdout:\n%s\n\nstderr:\n%s\n", cmd, out, err)
         expect(retcode == 0, f"Command {cmd} failed with rc={retcode}")
+
+        # xdsl_ccpp scheme I/O capture: the flags each source was compiled
+        # with, for the capture replay build (no-op without a capture).
+        flags_file = config.write_capture_compile_flags(out)
+        if flags_file:
+            _LOGGER.info("Wrote capture compile flags: %s", flags_file)
+        # end if
 
 ###############################################################################
 def _prepare_mpas(case: Case) -> None:

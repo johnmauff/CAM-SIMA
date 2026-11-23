@@ -244,7 +244,7 @@ contains
     use spmd_utils,             only: masterproc, masterprocid, mpicom, npes
     use cam_logfile,            only: iulog
     use shr_sys_mod,            only: shr_sys_flush
-    use shr_const_mod,          only: pi => shr_const_pi
+    use shr_const_mod,          only: shr_const_pi
     use shr_kind_mod,           only: shr_kind_cl
     use cam_abortutils,         only: endrun, check_allocate
 
@@ -261,7 +261,7 @@ contains
     character(len=*),  intent(in) :: grid_format
     character(len=*),  intent(in) :: filename_in
 
-    real(r8), parameter :: rad2deg = 180._r8/pi
+    real(r8), parameter :: rad2deg = 180._r8/shr_const_pi
 
     ! Local variables
     integer           :: i, ie, ierror, j, status, ivtx

@@ -29,3 +29,39 @@
   units = g mol-1
   type = real | kind = kind_phys
   dimensions = ()
+[ wv_idx ]
+  standard_name = index_of_water_vapor_in_ccpp_constituents
+  units = index
+  type = integer
+  dimensions = ()
+  protected = True
+[ thermodynamic_active_species_liq_num ]
+  standard_name = number_of_thermodynamically_active_liquid_water_species
+  units = count
+  type = integer
+  dimensions = ()
+  protected = True
+[ thermodynamic_active_species_liq_idx ]
+  standard_name = indices_of_thermodynamically_active_liquid_water_species_in_ccpp_constituents
+  units = index
+  type = integer
+  dimensions = (number_of_thermodynamically_active_liquid_water_species)
+  protected = True
+[ thermodynamic_active_species_ice_num ]
+  standard_name = number_of_thermodynamically_active_ice_species
+  units = count
+  type = integer
+  dimensions = ()
+  protected = True
+[ thermodynamic_active_species_ice_idx ]
+  standard_name = indices_of_thermodynamically_active_ice_species_in_ccpp_constituents
+  units = index
+  type = integer
+  dimensions = (number_of_thermodynamically_active_ice_species)
+  protected = True
+[ enthalpy_reference_state ]
+  standard_name = enthalpy_reference_state_for_total_energy
+  units = none
+  type = character | kind = len=3
+  dimensions = ()
+  protected = True

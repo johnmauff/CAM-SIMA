@@ -1,1 +1,4 @@
  ./xmlchange CAM_LINKED_LIBS="-lmpas"
+# 48 tasks for CPU and GPU alike: same MPAS decomposition, so CPU and GPU
+# runs can be compared bit for bit; under 64 tasks it runs in the develop queue.
+./xmlchange NTASKS=48
