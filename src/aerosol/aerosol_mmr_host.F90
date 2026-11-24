@@ -1006,7 +1006,8 @@ subroutine rad_aer_diag_out(list_idx, constituents, pdeldry, ncol)
    character(len=32) :: name, cbname
    real(r8), allocatable :: mass(:,:)
    real(r8), allocatable :: cb(:)
-   real(r8), pointer :: mmr(:,:)
+   real(r8) :: rga_l                ! local copy of rga (no module variable in device code)
+   integer  :: icol, k
    type(aerlist_t), pointer :: aerlist
    integer :: ierr
    character(len=shr_kind_cl) :: errmsg
@@ -1032,6 +1033,13 @@ subroutine rad_aer_diag_out(list_idx, constituents, pdeldry, ncol)
    call check_allocate(ierr, subname, 'cb(ncol)', &
                        file=__FILE__, line=__LINE__, errmsg=errmsg)
 
+   ! Runs on the device: constituents and pdeldry are device data (the
+   ! caller, aerosol_optics_diagnostics, maps them present), and
+   ! history_out_field accumulates device data in place
+   ! (gpu-history-accumulate). Same arithmetic and sum order as before.
+   rga_l = rga
+   !$acc data present(constituents, pdeldry) create(mass, cb)
+
    do i = 1, naer
 
       source = aerlist%aer(i)%source
@@ -1042,12 +1050,31 @@ subroutine rad_aer_diag_out(list_idx, constituents, pdeldry, ncol)
       ! 'Z' sources are identically zero; output zero fields without doing the math
       select case(source)
       case ('A','N')
-         mmr => constituents(:,:,idx)
-         mass(:ncol,:) = mmr(:ncol,:) * pdeldry(:ncol,:) * rga
-         cb(:ncol) = sum(mass(:ncol,:), 2)
+         !$acc parallel loop collapse(2)
+         do k = 1, nlev
+            do icol = 1, ncol
+               mass(icol,k) = constituents(icol,k,idx) * pdeldry(icol,k) * rga_l
+            end do
+         end do
+         !$acc parallel loop
+         do icol = 1, ncol
+            cb(icol) = 0._r8
+            !$acc loop seq
+            do k = 1, nlev
+               cb(icol) = cb(icol) + mass(icol,k)
+            end do
+         end do
       case ('Z')
-         mass(:ncol,:) = 0._r8
-         cb(:ncol) = 0._r8
+         !$acc parallel loop collapse(2)
+         do k = 1, nlev
+            do icol = 1, ncol
+               mass(icol,k) = 0._r8
+            end do
+         end do
+         !$acc parallel loop
+         do icol = 1, ncol
+            cb(icol) = 0._r8
+         end do
       case default
          call endrun(subname//': unrecognized source "'//source//'"; must be "A", "N" or "Z"')
       end select
@@ -1056,6 +1083,7 @@ subroutine rad_aer_diag_out(list_idx, constituents, pdeldry, ncol)
       call history_out_field(trim(cbname), cb(:ncol))
 
    end do
+   !$acc end data
 
    deallocate(mass)
    deallocate(cb)
