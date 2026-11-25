@@ -127,8 +127,10 @@ contains
 
   end subroutine physics_types_ddt_tstep_init
   subroutine physics_types_ddt_update_device()
+    !$acc update device(longitude) if_present
   end subroutine physics_types_ddt_update_device
   subroutine physics_types_ddt_update_host()
+    !$acc update self(longitude) if_present
   end subroutine physics_types_ddt_update_host
 
 end module physics_types_ddt

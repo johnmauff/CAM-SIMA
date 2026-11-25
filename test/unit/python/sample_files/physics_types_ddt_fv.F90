@@ -48,6 +48,8 @@ module physics_types_ddt
   public :: physics_types_ddt_tstep_init
   public :: physics_types_ddt_update_device
   public :: physics_types_ddt_update_host
+  public :: physics_types_ddt_phys_state_update_device
+  public :: physics_types_ddt_phys_state_update_host
 
 contains
 
@@ -127,8 +129,16 @@ contains
 
   end subroutine physics_types_ddt_tstep_init
   subroutine physics_types_ddt_update_device()
+    !$acc update device(phys_state%longitude) if_present
   end subroutine physics_types_ddt_update_device
   subroutine physics_types_ddt_update_host()
+    !$acc update self(phys_state%longitude) if_present
   end subroutine physics_types_ddt_update_host
+  subroutine physics_types_ddt_phys_state_update_device()
+    !$acc update device(phys_state%longitude) if_present
+  end subroutine physics_types_ddt_phys_state_update_device
+  subroutine physics_types_ddt_phys_state_update_host()
+    !$acc update self(phys_state%longitude) if_present
+  end subroutine physics_types_ddt_phys_state_update_host
 
 end module physics_types_ddt

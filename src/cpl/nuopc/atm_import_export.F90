@@ -470,6 +470,7 @@ contains
     ! -----------------------------------------------------
 
     use physics_types     , only : cam_in_t
+    use physics_types     , only : physics_types_cam_in_update_device
     use shr_const_mod     , only : shr_const_stebol
     use shr_sys_mod       , only : shr_sys_abort
     use nuopc_shr_methods , only : chkerr
@@ -847,6 +848,10 @@ contains
        first_time = .false.
     end if
 
+    ! GPU builds: device-resident cam_in fields get the values just imported
+    ! (resident-physics-state)
+    call physics_types_cam_in_update_device()
+
   end subroutine import_fields
 
   !===============================================================================
@@ -862,6 +867,7 @@ contains
     use nuopc_shr_methods , only: chkerr
     use srf_field_check   , only: active_Faxa_nhx, active_Faxa_noy
     use physics_types     , only: cam_out_t
+    use physics_types     , only: physics_types_cam_out_update_host
     use time_manager      , only: is_first_step, get_nstep
     use physics_grid      , only: columns_on_task
     use atm_stream_ndep   , only: stream_ndep_init, stream_ndep_interp
@@ -908,6 +914,10 @@ contains
     !---------------------------------------------------------------------------
 
     rc = ESMF_SUCCESS
+
+    ! GPU builds: the export reads the host copies of device-resident cam_out
+    ! fields (resident-physics-state)
+    call physics_types_cam_out_update_host()
 
     ! Determine water vapor constituent index
     call const_get_index('water_vapor_mixing_ratio_wrt_moist_air_and_condensed_water', &

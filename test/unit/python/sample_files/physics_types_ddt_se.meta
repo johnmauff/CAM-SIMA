@@ -28,6 +28,7 @@
   units = radians
   type = real | kind = kind_phys
   dimensions = (horizontal_dimension)
+  memory_space = device
   protected = True
 [ cappav ]
   standard_name = composition_dependent_ratio_of_dry_air_gas_constant_to_specific_heat_at_constant_pressure

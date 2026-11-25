@@ -1448,6 +1448,10 @@ class File:
             outfile.write(f'public :: {self.tstep_init_routine_name()}', 1)
             outfile.write(f'public :: {self.update_device_routine_name()}', 1)
             outfile.write(f'public :: {self.update_host_routine_name()}', 1)
+            for instance in self.device_ddt_instances():
+                outfile.write(f'public :: {self.update_device_routine_name(instance)}', 1)
+                outfile.write(f'public :: {self.update_host_routine_name(instance)}', 1)
+            # end for
             # end of module header
             outfile.end_module_header()
             outfile.write("", 0)
@@ -1456,6 +1460,12 @@ class File:
             self.write_tstep_init_routine(outfile, physconst_vars)
             self.write_update_routine(outfile, self.update_device_routine_name(), "device")
             self.write_update_routine(outfile, self.update_host_routine_name(), "self")
+            for instance in self.device_ddt_instances():
+                self.write_update_routine(outfile, self.update_device_routine_name(instance),
+                                          "device", instance)
+                self.write_update_routine(outfile, self.update_host_routine_name(instance),
+                                          "self", instance)
+            # end for
 
         # end with
 
@@ -1467,17 +1477,59 @@ class File:
         """Return the name of the physics timestep init routine for this module"""
         return f"{self.name}_tstep_init"
 
-    def update_device_routine_name(self):
+    def update_device_routine_name(self, instance=None):
         """Return the name of the routine that copies the host values of this
-        module's device-resident variables to the device"""
+        module's device-resident variables (or of DDT instance <instance>'s
+        device-resident members) to the device"""
+        if instance:
+            return f"{self.name}_{instance}_update_device"
+        # end if
         return f"{self.name}_update_device"
 
-    def update_host_routine_name(self):
+    def update_host_routine_name(self, instance=None):
         """Return the name of the routine that copies the device values of
-        this module's device-resident variables to the host"""
+        this module's device-resident variables (or of DDT instance
+        <instance>'s device-resident members) to the host"""
+        if instance:
+            return f"{self.name}_{instance}_update_host"
+        # end if
         return f"{self.name}_update_host"
 
-    def write_update_routine(self, outfile, subname, direction):
+    def device_members(self, var):
+        """Return "<instance>%<member>" for each member declared
+        memory_space="device" of <var>, an instance of a DDT defined in this
+        file (an empty list for any other variable)."""
+        ddt = self.__ddts.get(var.var_type)
+        if ddt is None:
+            return []
+        # end if
+        return [f"{var.local_name}%{member.local_name}"
+                for member in ddt.variable_list()
+                if member.memory_space == "device"]
+
+    def device_ddt_instances(self):
+        """Return the local names of this file's DDT instances that have
+        device-resident members"""
+        return [var.local_name for var in self.__var_dict.variable_list()
+                if self.device_members(var)]
+
+    def device_variables(self, instance=None):
+        """Return the device-resident variables to update: every variable
+        and DDT member declared memory_space="device", or only the members of
+        DDT instance <instance>"""
+        names = []
+        for var in self.__var_dict.variable_list():
+            if instance and var.local_name != instance:
+                continue
+            # end if
+            if var.memory_space == "device" and not instance:
+                names.append(var.local_name)
+            # end if
+            names.extend(self.device_members(var))
+        # end for
+        return names
+
+    def write_update_routine(self, outfile, subname, direction, instance=None):
         """Write a subroutine that updates one copy of every variable
         declared memory_space="device" (resident-physics-state): an OpenACC
         "update device" (direction "device") or "update self" (direction
@@ -1487,10 +1539,8 @@ class File:
         "if_present" skips a variable no suite put on the device. Without
         OpenACC the directives are comments and the routines do nothing."""
         outfile.write(f'subroutine {subname}()', 1)
-        for var in self.__var_dict.variable_list():
-            if var.memory_space == "device":
-                outfile.write(f'!$acc update {direction}({var.local_name}) if_present', 2)
-            # end if
+        for name in self.device_variables(instance):
+            outfile.write(f'!$acc update {direction}({name}) if_present', 2)
         # end for
         outfile.write(f'end subroutine {subname}', 1)
 

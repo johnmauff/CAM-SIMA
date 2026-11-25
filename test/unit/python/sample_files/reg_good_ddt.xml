@@ -18,7 +18,8 @@
     </variable>
     <variable local_name="longitude" standard_name="longitude"
               units="radians" type="real" kind="kind_phys"
-              allocatable="pointer" access="protected">
+              allocatable="pointer" access="protected"
+              memory_space="device">
       <dimensions>horizontal_dimension</dimensions>
       <ic_file_input_names>lon</ic_file_input_names>
     </variable>

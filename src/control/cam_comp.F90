@@ -26,6 +26,7 @@ module cam_comp
    use time_manager,              only: get_curr_calday, get_curr_date
 
    use physics_types,             only: phys_state, phys_tend
+   use physics_types,             only: physics_types_update_device
    use physics_types,             only: dtime_phys
    use physics_types,             only: calday, next_calday, radiation_offset, nextsw_cday
    use physics_types,             only: current_date, current_sec
@@ -300,6 +301,9 @@ contains
       ! Read static subgrid topography fields (SGH, SGH30, LANDM_COSLAT)
       ! from the topo file into the physics state
       call topography_statics_read_file()
+      ! GPU builds: device-resident physics variables get the topography
+      ! values just read (resident-physics-state)
+      call physics_types_update_device()
 
 !!XXgoldyXX: v need to import this
 !      call bldfld ()  ! master field list (if branch, only does hash tables)

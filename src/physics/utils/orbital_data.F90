@@ -106,7 +106,10 @@ contains
        end if
        call mark_as_initialized('cosine_of_solar_zenith_angle_for_radiation')
     end if
-   
+
+    ! GPU builds: coszrs_rad is device-resident (resident-physics-state)
+    !$acc update device(coszrs_rad) if_present
+
    end subroutine orbital_data_advance
 
   !=======================================================================
