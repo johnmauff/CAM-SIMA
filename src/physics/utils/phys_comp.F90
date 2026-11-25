@@ -274,6 +274,7 @@ CONTAINS
       use pio,            only: file_desc_t
       use cam_initfiles,  only: initial_file_get_id
       use physics_types,  only: physics_types_tstep_init
+      use physics_types,  only: physics_types_update_device
       use physics_inputs, only: physics_read_data
       use time_manager,   only: is_first_restart_step
       use time_manager,   only: get_nstep
@@ -318,6 +319,11 @@ CONTAINS
         call physics_read_data(ncdata, suite_names, data_frame,               &
                                read_initialized_variables=use_init_variables)
       end if
+      if ((.not. use_init_variables) .or. is_null_dycore) then
+        ! GPU builds: device-resident physics variables get the values just
+        ! read on the host (resident-physics-state)
+        call physics_types_update_device()
+      end if
 
       ! Initialize the physics time step
       call cam_ccpp_physics_timestep_initial(phys_suite_name)
@@ -361,6 +367,7 @@ CONTAINS
       use cam_initfiles,  only: unset_path_str
       use cam_ccpp_cap,   only: cam_ccpp_physics_timestep_final
       use physics_inputs, only: physics_check_data
+      use physics_types,  only: physics_types_update_host
 
       ! Subroutine inputs
       logical, intent(in) :: do_ncdata_check
@@ -381,6 +388,9 @@ CONTAINS
       ! Determine if physics_check should be run:
       if (trim(ncdata_check) /= trim(unset_path_str)) then
          if (do_ncdata_check) then
+            ! GPU builds: the check reads the host copies of device-resident
+            ! physics variables (resident-physics-state)
+            call physics_types_update_host()
             call physics_check_data(ncdata_check, suite_names, data_frame,  &
                                     min_difference, min_relative_value,     &
                                     ncdata_check_err)

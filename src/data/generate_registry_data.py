@@ -170,6 +170,7 @@ class VarBase:
         self.__diag_name   = elem_node.get("diagnostic_name", default=local_name)
         self.__tstep_init  = elem_node.get("phys_timestep_init_zero",
                                            default=tstep_init_default)
+        self.__memory_space = elem_node.get("memory_space", default="host")
         if self.__allocatable == "none":
             self.__allocatable = ""
         # end if
@@ -238,6 +239,9 @@ class VarBase:
             outfile.write(f'  type = {self.var_type}\n')
         # end if
         outfile.write(f'  dimensions = {self.dimension_string}\n')
+        if self.memory_space == "device":
+            outfile.write('  memory_space = device\n')
+        # end if
         if self.is_advected:
             outfile.write('  advected = true\n')
         # end if
@@ -471,6 +475,12 @@ class VarBase:
         """Return True if variable will be set to zero every physics timestep."""
         return self.__tstep_init
 
+    @property
+    def memory_space(self):
+        """Return "device" if the variable lives on the device on GPU builds
+        (resident-physics-state), else "host"."""
+        return self.__memory_space
+
 ###############################################################################
 class ArrayElement(VarBase):
 ###############################################################################
@@ -574,7 +584,7 @@ class Variable(VarBase):
                         "kind", "local_name", "name",
                         "phys_timestep_init_zero", "standard_name",
                         "type", "units", "version", "restart",
-                        "diagnostic_name"]
+                        "diagnostic_name", "memory_space"]
 
     def __init__(self, var_node, known_types, vdict, dycore, logger):
         # pylint: disable=too-many-locals
@@ -1436,12 +1446,16 @@ class File:
             outfile.write('!! public interfaces', 0)
             outfile.write(f'public :: {self.allocate_routine_name()}', 1)
             outfile.write(f'public :: {self.tstep_init_routine_name()}', 1)
+            outfile.write(f'public :: {self.update_device_routine_name()}', 1)
+            outfile.write(f'public :: {self.update_host_routine_name()}', 1)
             # end of module header
             outfile.end_module_header()
             outfile.write("", 0)
             # Write data management subroutines
             self.write_allocate_routine(outfile, physconst_vars, var_module_dict)
             self.write_tstep_init_routine(outfile, physconst_vars)
+            self.write_update_routine(outfile, self.update_device_routine_name(), "device")
+            self.write_update_routine(outfile, self.update_host_routine_name(), "self")
 
         # end with
 
@@ -1452,6 +1466,33 @@ class File:
     def tstep_init_routine_name(self):
         """Return the name of the physics timestep init routine for this module"""
         return f"{self.name}_tstep_init"
+
+    def update_device_routine_name(self):
+        """Return the name of the routine that copies the host values of this
+        module's device-resident variables to the device"""
+        return f"{self.name}_update_device"
+
+    def update_host_routine_name(self):
+        """Return the name of the routine that copies the device values of
+        this module's device-resident variables to the host"""
+        return f"{self.name}_update_host"
+
+    def write_update_routine(self, outfile, subname, direction):
+        """Write a subroutine that updates one copy of every variable
+        declared memory_space="device" (resident-physics-state): an OpenACC
+        "update device" (direction "device") or "update self" (direction
+        "self"). On GPU builds such variables live on the device for the whole
+        run (the CCPP cap puts them there); host code calls these routines
+        after it writes them on the host and before it reads them on the host.
+        "if_present" skips a variable no suite put on the device. Without
+        OpenACC the directives are comments and the routines do nothing."""
+        outfile.write(f'subroutine {subname}()', 1)
+        for var in self.__var_dict.variable_list():
+            if var.memory_space == "device":
+                outfile.write(f'!$acc update {direction}({var.local_name}) if_present', 2)
+            # end if
+        # end for
+        outfile.write(f'end subroutine {subname}', 1)
 
     def write_allocate_routine(self, outfile, physconst_vars, var_module_dict):
         """Write a subroutine to allocate all the data in this module"""

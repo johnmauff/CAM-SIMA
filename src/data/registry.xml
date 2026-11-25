@@ -166,6 +166,7 @@
     </variable>
     <!-- State quantities for shallow/deep convection -->
     <variable local_name="qpert"
+              memory_space="device"
               standard_name="convective_water_vapor_mixing_ratio_wrt_moist_air_and_condensed_water_perturbation_due_to_pbl_eddies"
               units="kg kg-1" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -175,6 +176,7 @@
       <ic_file_input_names>qpert pbuf_qpert</ic_file_input_names>
     </variable>
     <variable local_name="cmfmc"
+              memory_space="device"
               standard_name="atmosphere_convective_mass_flux_due_to_all_convection"
               units="kg m-2 s-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -183,6 +185,7 @@
       <ic_file_input_names>cmfmc tphysbc_cmfmc</ic_file_input_names>
     </variable>
     <variable local_name="cmfmc_dp"
+              memory_space="device"
               standard_name="atmosphere_convective_mass_flux_due_to_deep_convection"
               units="kg m-2 s-1" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -192,6 +195,7 @@
       <ic_file_input_names>cmfmc_dp pbuf_CMFMC_DP</ic_file_input_names>
     </variable>
     <variable local_name="cmfmc_sh"
+              memory_space="device"
               standard_name="atmosphere_convective_mass_flux_due_to_shallow_convection"
               units="kg m-2 s-1" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -201,6 +205,7 @@
       <ic_file_input_names>cmfmc_sh pbuf_CMFMC_SH</ic_file_input_names>
     </variable>
     <variable local_name="dlfzm"
+              memory_space="device"
               standard_name="detrainment_of_cloud_liquid_water_wrt_moist_air_and_condensed_water_due_to_deep_convection"
               units="kg kg-1 s-1" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -210,6 +215,7 @@
       <ic_file_input_names>dlfzm pbuf_DLFZM</ic_file_input_names>
     </variable>
     <variable local_name="icwmrsh"
+              memory_space="device"
               standard_name="in_cloud_water_vapor_mixing_ratio_wrt_moist_air_and_condensed_water_due_to_shallow_convection"
               units="kg kg-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -218,6 +224,7 @@
       <ic_file_input_names>ICWMRSH pbuf_ICWMRSH</ic_file_input_names>
     </variable>
     <variable local_name="dlf"
+              memory_space="device"
               standard_name="detrainment_of_cloud_liquid_water_wrt_moist_air_and_condensed_water_due_to_all_convection"
               units="kg kg-1 s-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -226,6 +233,7 @@
       <ic_file_input_names>dlf tphysbc_dlf</ic_file_input_names>
     </variable>
     <variable local_name="dlf2"
+              memory_space="device"
               standard_name="detrainment_of_cloud_liquid_water_wrt_moist_air_and_condensed_water_due_to_shallow_convection"
               units="kg kg-1 s-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -234,6 +242,7 @@
       <ic_file_input_names>dlf2 tphysbc_dlf2</ic_file_input_names>
     </variable>
     <variable local_name="rprddp"
+              memory_space="device"
               standard_name="tendency_of_precipitation_wrt_moist_air_and_condensed_water_due_to_deep_convection_excluding_subcloud_evaporation"
               units="kg kg-1 s-1" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -243,6 +252,7 @@
       <ic_file_input_names>pbuf_RPRDDP</ic_file_input_names>
     </variable>
     <variable local_name="dp_frac"
+              memory_space="device"
               standard_name="deep_convective_cloud_area_fraction"
               units="fraction" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -251,6 +261,7 @@
       <ic_file_input_names>DP_FRAC pbuf_DP_FRAC</ic_file_input_names>
     </variable>
     <variable local_name="sh_frac"
+              memory_space="device"
               standard_name="shallow_convective_cloud_area_fraction"
               units="fraction" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -259,6 +270,7 @@
       <ic_file_input_names>SH_FRAC pbuf_SH_FRAC</ic_file_input_names>
     </variable>
     <variable local_name="rliq"
+              memory_space="device"
               standard_name="vertically_integrated_cloud_liquid_water_tendency_due_to_all_convection_to_be_applied_later_in_time_loop"
               units="m s-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -267,6 +279,7 @@
       <ic_file_input_names>rliq tphysbc_rliq</ic_file_input_names>
     </variable>
     <variable local_name="rliq2"
+              memory_space="device"
               standard_name="vertically_integrated_cloud_liquid_water_tendency_due_to_shallow_convection_to_be_applied_later_in_time_loop"
               units="m s-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -345,6 +358,7 @@
       <ic_file_input_names>zi state_zi</ic_file_input_names>
     </variable>
     <variable local_name="te_ini_phys"
+              memory_space="device"
               standard_name="vertically_integrated_total_energy_using_physics_energy_formula_at_start_of_physics_timestep"
               units="J m-2"
               type="real" kind="kind_phys"
@@ -353,6 +367,7 @@
       <ic_file_input_names>te_ini_phys state_te_ini_phys</ic_file_input_names>
     </variable>
     <variable local_name="te_cur_phys"
+              memory_space="device"
               standard_name="vertically_integrated_total_energy_using_physics_energy_formula"
               units="J m-2"
               type="real" kind="kind_phys"
@@ -444,6 +459,7 @@
       <ic_file_input_names>dvdt tend_dvdt</ic_file_input_names>
     </variable>
     <variable local_name="heating_rate"
+              memory_space="device"
 	      standard_name="tendency_of_dry_air_enthalpy_at_constant_pressure"
 	      units="J kg-1 s-1" type="real" kind="kind_phys"
 	      allocatable="allocatable">
@@ -743,6 +759,7 @@
 
     <!-- temporaries from pbuf for snapshot usage. -->
     <variable local_name="ast"
+              memory_space="device"
               standard_name="stratiform_cloud_area_fraction"
               units="fraction" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -795,6 +812,7 @@
       <ic_file_input_names>cflx cam_in_cflx</ic_file_input_names>
     </variable>
     <variable local_name="fsnt"
+              memory_space="device"
 	      standard_name="shortwave_net_outgoing_flux_at_model_top"
 	      units="W m-2" type="real" kind="kind_phys"
 	      allocatable="allocatable">
@@ -803,6 +821,7 @@
       <ic_file_input_names>FSNT pbuf_FSNT</ic_file_input_names>
     </variable>
     <variable local_name="fsns"
+              memory_space="device"
 	      standard_name="shortwave_net_upward_flux_at_surface"
 	      units="W m-2" type="real" kind="kind_phys"
 	      allocatable="allocatable">
@@ -811,6 +830,7 @@
       <ic_file_input_names>FSNS pbuf_FSNS</ic_file_input_names>
     </variable>
     <variable local_name="flnt"
+              memory_space="device"
 	      standard_name="longwave_net_outgoing_flux_at_model_top"
 	      units="W m-2" type="real" kind="kind_phys"
 	      allocatable="allocatable">
@@ -819,6 +839,7 @@
       <ic_file_input_names>FLNT pbuf_FLNT</ic_file_input_names>
     </variable>
     <variable local_name="flns"
+              memory_space="device"
 	      standard_name="longwave_net_upward_flux_at_surface"
 	      units="W m-2" type="real" kind="kind_phys"
 	      allocatable="allocatable">
@@ -1574,6 +1595,7 @@
     <!-- Temporary initializations from snapshot -->
     <!-- Note that no_deep_pbl defaults to false, but needs to be set to true for diag_TKE or UW schemes -->
     <variable local_name="pblh"
+              memory_space="device"
               standard_name="atmosphere_boundary_layer_thickness"
               units="m" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -1585,6 +1607,7 @@
       <ic_file_input_names>pblh pbuf_pblh</ic_file_input_names>
     </variable>
     <variable local_name="tpert"
+              memory_space="device"
               standard_name="convective_temperature_perturbation_due_to_pbl_eddies"
               units="K" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -1638,6 +1661,7 @@
 
     <!-- Surface precipitation components -->
     <variable local_name="prec_dp"
+              memory_space="device"
               standard_name="lwe_precipitation_rate_at_surface_due_to_deep_convection"
               units="m s-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -1646,6 +1670,7 @@
       <ic_file_input_names>pbuf_PREC_DP</ic_file_input_names>
     </variable>
     <variable local_name="prec_sh"
+              memory_space="device"
               standard_name="lwe_precipitation_rate_at_surface_due_to_shallow_convection"
               units="m s-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -1654,6 +1679,7 @@
       <ic_file_input_names>pbuf_PREC_SH</ic_file_input_names>
     </variable>
     <variable local_name="prec_str"
+              memory_space="device"
               standard_name="lwe_large_scale_precipitation_rate_at_surface"
               units="m s-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -1672,6 +1698,7 @@
       <ic_file_input_names>pbuf_QSATFAC</ic_file_input_names>
     </variable>
     <variable local_name="aist"
+              memory_space="device"
               standard_name="stratiform_cloud_ice_area_fraction"
               units="fraction" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -1819,6 +1846,7 @@
 
     <!-- Gravity wave variables - need to be kept in the CAM registry -->
     <variable local_name="kvt"
+              memory_space="device"
               standard_name="molecular_kinematic_temperature_conductivity_at_interfaces"
               units="m2 s-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -1854,6 +1882,7 @@
 
     <!-- rk_stratiform microphysics/macrophysics variables - need to be kept in the CAM registry -->
     <variable local_name="qcwat"
+              memory_space="device"
               standard_name="water_vapor_mixing_ratio_wrt_moist_air_and_condensed_water_on_previous_timestep"
               units="kg kg-1" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -1864,6 +1893,7 @@
       <ic_file_input_names>pbuf_QCWAT</ic_file_input_names>
     </variable>
     <variable local_name="tcwat"
+              memory_space="device"
               standard_name="air_temperature_on_previous_timestep"
               units="K" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -1874,6 +1904,7 @@
       <ic_file_input_names>pbuf_TCWAT</ic_file_input_names>
     </variable>
     <variable local_name="lcwat"
+              memory_space="device"
               standard_name="cloud_water_mixing_ratio_wrt_moist_air_and_condensed_water_on_previous_timestep"
               units="kg kg-1" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -1886,6 +1917,7 @@
 
     <!-- vertical diffusion solver variables - need to be kept in the CAM registry -->
     <variable local_name="kvm"
+              memory_space="device"
               standard_name="eddy_momentum_diffusivity_at_interfaces"
               units="m2 s-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -1894,6 +1926,7 @@
       <ic_file_input_names>pbuf_kvm</ic_file_input_names>
     </variable>
     <variable local_name="kvh"
+              memory_space="device"
               standard_name="eddy_heat_diffusivity_at_interfaces"
               units="m2 s-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -1902,6 +1935,7 @@
       <ic_file_input_names>pbuf_kvh</ic_file_input_names>
     </variable>
     <variable local_name="tke"
+              memory_space="device"
               standard_name="tke_at_interfaces"
               units="m2 s-2" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -1910,6 +1944,7 @@
       <ic_file_input_names>pbuf_tke</ic_file_input_names>
     </variable>
     <variable local_name="tauresx"
+              memory_space="device"
               standard_name="eastward_reserved_stress_at_surface_on_previous_timestep"
               units="N m-2" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -1919,6 +1954,7 @@
       <ic_file_input_names>pbuf_tauresx</ic_file_input_names>
     </variable>
     <variable local_name="tauresy"
+              memory_space="device"
               standard_name="northward_reserved_stress_at_surface_on_previous_timestep"
               units="N m-2" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -1928,6 +1964,7 @@
       <ic_file_input_names>pbuf_tauresy</ic_file_input_names>
     </variable>
     <variable local_name="dragblj"
+              memory_space="device"
               standard_name="turbulent_orographic_form_drag_coefficent"
               units="s-1" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -1942,6 +1979,7 @@
          an alternate standard name is currently used. When CAM snapshots are retired, only either
          Beljaars or TMS (which are mutually exclusive) provide the {east,north}ward_orographic_form_drag_stress_at_surface. -->
     <variable local_name="taubljx"
+              memory_space="device"
               standard_name="eastward_beljaars_surface_stress_tbd"
               units="N m-2" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -1951,6 +1989,7 @@
       <ic_file_input_names>pbuf_taubljx</ic_file_input_names>
     </variable>
     <variable local_name="taubljy"
+              memory_space="device"
               standard_name="northward_beljaars_surface_stress_tbd"
               units="N m-2" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -1965,6 +2004,7 @@
          an alternate standard name is currently used. When CAM snapshots are retired, only either
          Beljaars or TMS (which are mutually exclusive) provide the {east,north}ward_orographic_form_drag_stress_at_surface. -->
     <variable local_name="tautmsx"
+              memory_space="device"
               standard_name="eastward_turbulent_mountain_surface_stress_tbd"
               units="N m-2" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -1973,6 +2013,7 @@
       <ic_file_input_names>pbuf_tautmsx</ic_file_input_names>
     </variable>
     <variable local_name="tautmsy"
+              memory_space="device"
               standard_name="northward_turbulent_mountain_surface_stress_tbd"
               units="N m-2" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -1981,6 +2022,7 @@
       <ic_file_input_names>pbuf_tautmsy</ic_file_input_names>
     </variable>
     <variable local_name="ksrftms"
+              memory_space="device"
               standard_name="turbulent_orographic_form_drag_coefficent_at_surface"
               units="kg s-1 m-2" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2146,6 +2188,7 @@
     </variable>
     <!-- Zhang McFarlane (ZM) Variables -->
     <variable local_name="ql"
+              memory_space="device"
               standard_name="in_cloud_water_vapor_mixing_ratio_wrt_moist_air_and_condensed_water_due_to_deep_convection"
               units="kg kg-1" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -2155,6 +2198,7 @@
       <ic_file_input_names>ICWMRDP pbuf_ICWMRDP</ic_file_input_names>
     </variable>
     <variable local_name="cldfrc"
+              memory_space="device"
               standard_name="cloud_area_fraction"
               units="fraction" type="real" kind="kind_phys"
               allocatable="allocatable" restart="true"
@@ -2182,6 +2226,7 @@
       <dimensions>horizontal_dimension vertical_layer_dimension</dimensions>
     </variable>
     <variable local_name="fracis"
+              memory_space="device"
               standard_name="fraction_of_water_insoluble_convectively_transported_species"
               units="fraction" type="real" kind="kind_phys"
               allocatable="allocatable"
@@ -2245,6 +2290,7 @@
       <ic_file_input_names>COSZRS pbuf_COSZRS</ic_file_input_names>
     </variable>
     <variable local_name="cldfsnow"
+              memory_space="device"
               standard_name="liquid_plus_snow_stratiform_cloud_area_fraction"
               units="fraction" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2253,6 +2299,7 @@
       <ic_file_input_names>CLDFSNOW pbuf_CLDFSNOW</ic_file_input_names>
     </variable>
     <variable local_name="cldfgrau"
+              memory_space="device"
               standard_name="liquid_plus_graupel_stratiform_cloud_area_fraction"
               units="fraction" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2261,6 +2308,7 @@
       <ic_file_input_names>CLDFGRAU pbuf_CLDFGRAU</ic_file_input_names>
     </variable>
     <variable local_name="icgrauwp"
+              memory_space="device"
               standard_name="stratiform_in_cloud_graupel_water_path"
               units="kg m-2" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2269,6 +2317,7 @@
       <ic_file_input_names>ICGRAUWP pbuf_ICGRAUWP</ic_file_input_names>
     </variable>
     <variable local_name="degrau"
+              memory_space="device"
               standard_name="effective_diameter_of_stratiform_cloud_graupel_particle_for_radiation"
               units="m" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2277,6 +2326,7 @@
       <ic_file_input_names>DEGRAU pbuf_DEGRAU</ic_file_input_names>
     </variable>
     <variable local_name="lamc"
+              memory_space="device"
               standard_name="slope_of_droplet_distribution_for_optics"
               units="1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2285,6 +2335,7 @@
       <ic_file_input_names>LAMBDAC pbuf_LAMBDAC</ic_file_input_names>
     </variable>
     <variable local_name="pgam"
+              memory_space="device"
               standard_name="size_distribution_shape_parameter_for_microphysics"
               units="1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2293,6 +2344,7 @@
       <ic_file_input_names>MU pbuf_MU</ic_file_input_names>
     </variable>
     <variable local_name="iclwpth"
+              memory_space="device"
               standard_name="in_cloud_liquid_water_path_for_radiation"
               units="kg m-2" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2301,6 +2353,7 @@
       <ic_file_input_names>ICLWP pbuf_ICLWP</ic_file_input_names>
     </variable>
     <variable local_name="iciwpth"
+              memory_space="device"
               standard_name="in_cloud_ice_water_path"
               units="kg m-2" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2309,6 +2362,7 @@
       <ic_file_input_names>ICIWP pbuf_ICIWP</ic_file_input_names>
     </variable>
     <variable local_name="icswpth"
+              memory_space="device"
               standard_name="in_cloud_snow_water_path"
               units="kg m-2" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2317,6 +2371,7 @@
       <ic_file_input_names>ICSWP pbuf_ICSWP</ic_file_input_names>
     </variable>
     <variable local_name="dei"
+              memory_space="device"
               standard_name="effective_diameter_of_stratiform_cloud_ice_crystal_for_radiation"
               units="um" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2325,6 +2380,7 @@
       <ic_file_input_names>DEI pbuf_DEI</ic_file_input_names>
     </variable>
     <variable local_name="des"
+              memory_space="device"
               standard_name="effective_diameter_of_stratiform_snow_crystal_for_radiation"
               units="um" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2334,6 +2390,7 @@
     </variable>
     <!-- Stratiform liquid effective radius consumed by the RRTMGP cloud optics. -->
     <variable local_name="rel"
+              memory_space="device"
               standard_name="effective_radius_of_stratiform_cloud_liquid_water_droplet"
               units="um" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2344,6 +2401,7 @@
 
     <!-- convective_cloud_water + cloud_water_paths inputs for RRTMGP cloud optics -->
     <variable local_name="effi_external_in"
+              memory_space="device"
               standard_name="effective_radius_of_stratiform_cloud_ice_crystal"
               units="um" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2352,6 +2410,7 @@
       <ic_file_input_names>REI pbuf_REI</ic_file_input_names>
     </variable>
     <variable local_name="concld"
+              memory_space="device"
               standard_name="convective_cloud_area_fraction"
               units="fraction" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2360,6 +2419,7 @@
       <ic_file_input_names>CONCLD pbuf_CONCLD</ic_file_input_names>
     </variable>
     <variable local_name="qsout"
+              memory_space="device"
               standard_name="snow_mixing_ratio_wrt_moist_air_and_condensed_water_of_new_state"
               units="kg kg-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2368,6 +2428,7 @@
       <ic_file_input_names>QSOUT pbuf_QSOUT</ic_file_input_names>
     </variable>
     <variable local_name="qgout"
+              memory_space="device"
               standard_name="graupel_water_mixing_ratio_wrt_moist_air_and_condensed_water_of_new_state"
               units="kg kg-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2376,6 +2437,7 @@
       <ic_file_input_names>QGOUT pbuf_QGOUT</ic_file_input_names>
     </variable>
     <variable local_name="totg_liq"
+              memory_space="device"
               standard_name="gridbox_total_cloud_liquid_water_mixing_ratio_wrt_moist_air_and_condensed_water"
               units="kg kg-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2384,6 +2446,7 @@
       <ic_file_input_names>GB_TOTCLDLIQMR pbuf_GB_TOTCLDLIQMR</ic_file_input_names>
     </variable>
     <variable local_name="totg_ice"
+              memory_space="device"
               standard_name="gridbox_total_cloud_ice_mixing_ratio_wrt_moist_air_and_condensed_water"
               units="kg kg-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2398,6 +2461,7 @@
       <initial_value>.false.</initial_value>
     </variable>
     <variable local_name="qrs"
+              memory_space="device"
               standard_name="tendency_of_dry_air_enthalpy_at_constant_pressure_due_to_shortwave_radiation_adjusted_by_air_pressure_thickness"
               units="J Pa kg-1 s-1" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2415,6 +2479,7 @@
     </variable>
     <!-- Net radiative flux profiles for persistence across timesteps (including those without radiation) -->
     <variable local_name="fns"
+              memory_space="device"
               standard_name="shortwave_net_radiative_flux"
               units="W m-2" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2422,6 +2487,7 @@
       <initial_value>0._kind_phys</initial_value>
     </variable>
     <variable local_name="fcns"
+              memory_space="device"
               standard_name="shortwave_net_radiative_clear_sky_flux"
               units="W m-2" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2429,6 +2495,7 @@
       <initial_value>0._kind_phys</initial_value>
     </variable>
     <variable local_name="fnl"
+              memory_space="device"
               standard_name="longwave_net_radiative_flux"
               units="W m-2" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -2436,6 +2503,7 @@
       <initial_value>0._kind_phys</initial_value>
     </variable>
     <variable local_name="fcnl"
+              memory_space="device"
               standard_name="longwave_net_radiative_clear_sky_flux"
               units="W m-2" type="real" kind="kind_phys"
               allocatable="allocatable">

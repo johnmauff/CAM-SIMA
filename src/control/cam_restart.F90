@@ -11,6 +11,7 @@ CONTAINS
     use cam_pio_utils,    only: cam_pio_createfile, cam_pio_set_fill, cam_pio_closefile
     use restart_dynamics, only: write_restart_dynamics, init_restart_dynamics
     use restart_physics,  only: write_restart_physics, init_restart_physics
+    use physics_types,    only: physics_types_update_host
     use cam_history,      only: init_restart_history, write_restart_history
     use cam_instance,     only: inst_suffix
     use pio,              only: file_desc_t, io_desc_t, pio_double, pio_global
@@ -87,7 +88,9 @@ CONTAINS
     ! Write physics grid info
     call cam_grid_write_var(fh, phys_decomp)
 
-    ! Write physics restart variables
+    ! Write physics restart variables (GPU builds: from the host copies of
+    ! device-resident physics variables, resident-physics-state)
+    call physics_types_update_host()
     call write_restart_physics(fh, grid_id, errmsg, errflg)
     if (errflg /= 0) then
        call safe_endrun(errmsg)

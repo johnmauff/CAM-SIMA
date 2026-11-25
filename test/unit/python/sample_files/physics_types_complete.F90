@@ -74,6 +74,8 @@ module physics_types_complete
 !! public interfaces
   public :: allocate_physics_types_complete_fields
   public :: physics_types_complete_tstep_init
+  public :: physics_types_complete_update_device
+  public :: physics_types_complete_update_host
 
 contains
 
@@ -228,5 +230,9 @@ contains
     phys_state%pver = 0
 
   end subroutine physics_types_complete_tstep_init
+  subroutine physics_types_complete_update_device()
+  end subroutine physics_types_complete_update_device
+  subroutine physics_types_complete_update_host()
+  end subroutine physics_types_complete_update_host
 
 end module physics_types_complete

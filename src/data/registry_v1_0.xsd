@@ -121,8 +121,20 @@
   <!-- other optional attributes -->
   <xs:attribute name="diagnostic_name" type="fortran_id_type"
                 default="none"/>
+  <!-- memory_space="device": on GPU builds the variable lives on the device
+       for the whole run; host code updates its copies around host reads and
+       writes (resident-physics-state) -->
+  <xs:attribute name="memory_space" type="memory_space_type"
+                default="host"/>
 
   <!-- definition of simple types -->
+
+  <xs:simpleType name="memory_space_type">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="host"/>
+      <xs:enumeration value="device"/>
+    </xs:restriction>
+  </xs:simpleType>
 
   <xs:simpleType name="dimensions">
     <xs:list itemType="dimension_type"/>
@@ -184,6 +196,7 @@
     <xs:attribute ref="advected"      use="optional"/>
     <xs:attribute ref="phys_timestep_init_zero" use="optional"/>
     <xs:attribute ref="diagnostic_name" use="optional"/>
+    <xs:attribute ref="memory_space" use="optional"/>
   </xs:complexType>
 
   <xs:complexType name="array_type">

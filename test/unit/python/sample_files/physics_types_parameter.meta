@@ -16,6 +16,7 @@
   units = radians
   type = real | kind = kind_phys
   dimensions = (horizontal_dimension)
+  memory_space = device
   protected = True
 [ longitude ]
   standard_name = longitude

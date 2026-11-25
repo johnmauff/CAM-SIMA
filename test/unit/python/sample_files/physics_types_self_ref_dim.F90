@@ -49,6 +49,8 @@ module physics_types_self_ref_dim
 !! public interfaces
   public :: allocate_physics_types_self_ref_dim_fields
   public :: physics_types_self_ref_dim_tstep_init
+  public :: physics_types_self_ref_dim_update_device
+  public :: physics_types_self_ref_dim_update_host
 
 contains
 
@@ -128,5 +130,9 @@ contains
     character(len=*), parameter :: subname = "physics_types_self_ref_dim_tstep_init"
 
   end subroutine physics_types_self_ref_dim_tstep_init
+  subroutine physics_types_self_ref_dim_update_device()
+  end subroutine physics_types_self_ref_dim_update_device
+  subroutine physics_types_self_ref_dim_update_host()
+  end subroutine physics_types_self_ref_dim_update_host
 
 end module physics_types_self_ref_dim
