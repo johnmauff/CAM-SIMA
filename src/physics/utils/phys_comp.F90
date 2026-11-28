@@ -350,6 +350,7 @@ CONTAINS
    subroutine phys_run2()
       use cam_ccpp_cap,   only: cam_ccpp_physics_run
       use cam_abortutils, only: endrun
+      use physics_types,  only: physics_types_phys_tend_update_host
 
       ! Run after coupler group if it exists
       if (any('physics_after_coupler' == suite_parts)) then
@@ -358,6 +359,10 @@ CONTAINS
             call endrun('cam_ccpp_physics_run: '//trim(errmsg))
          end if
       end if
+
+      ! GPU builds: the physics-to-dynamics coupling reads the total physics
+      ! tendencies on the host (resident-physics-state)
+      call physics_types_phys_tend_update_host()
 
    end subroutine phys_run2
 

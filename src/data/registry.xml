@@ -376,6 +376,7 @@
       <ic_file_input_names>te_cur_phys state_te_cur_phys</ic_file_input_names>
     </variable>
     <variable local_name="te_ini_dyn"
+              memory_space="device"
               standard_name="vertically_integrated_total_energy_using_dycore_energy_formula_at_start_of_physics_timestep"
               units="J m-2"
               type="real" kind="kind_phys"
@@ -384,6 +385,7 @@
       <ic_file_input_names>te_ini_dyn state_te_ini_dyn</ic_file_input_names>
     </variable>
     <variable local_name="te_cur_dyn"
+              memory_space="device"
               standard_name="vertically_integrated_total_energy_using_dycore_energy_formula"
               units="J m-2"
               type="real" kind="kind_phys"
@@ -392,6 +394,7 @@
       <ic_file_input_names>te_cur_dyn state_te_cur_dyn</ic_file_input_names>
     </variable>
     <variable local_name="tw_ini"
+              memory_space="device"
               standard_name="vertically_integrated_total_water_at_start_of_physics_timestep"
               units="kg m-2"
               type="real" kind="kind_phys"
@@ -400,6 +403,7 @@
       <ic_file_input_names>tw_ini state_tw_ini</ic_file_input_names>
     </variable>
     <variable local_name="tw_cur"
+              memory_space="device"
               standard_name="vertically_integrated_total_water"
               units="kg m-2"
               type="real" kind="kind_phys"
@@ -408,6 +412,7 @@
       <ic_file_input_names>tw_cur state_tw_cur</ic_file_input_names>
     </variable>
     <variable local_name="teout"
+              memory_space="device"
               standard_name="vertically_integrated_total_energy_using_dycore_energy_formula_at_end_of_physics_timestep"
               units="J m-2" type="real" kind="kind_phys"
               allocatable="allocatable">
@@ -435,6 +440,7 @@
     </variable>
     <!-- State tendencies -->
     <variable local_name="dTdt_total"
+              memory_space="device"
               standard_name="tendency_of_air_temperature_due_to_model_physics"
               units="K s-1" type="real" kind="kind_phys"
               allocatable="pointer">
@@ -443,6 +449,7 @@
       <ic_file_input_names>dTdt tend_dtdt</ic_file_input_names>
     </variable>
     <variable local_name="dudt_total"
+              memory_space="device"
               standard_name="tendency_of_eastward_wind_due_to_model_physics"
               units="m s-2" type="real" kind="kind_phys"
               allocatable="pointer">
@@ -451,6 +458,7 @@
       <ic_file_input_names>dudt tend_dudt</ic_file_input_names>
     </variable>
     <variable local_name="dvdt_total"
+              memory_space="device"
               standard_name="tendency_of_northward_wind_due_to_model_physics"
               units="m s-2" type="real" kind="kind_phys"
               allocatable="pointer">

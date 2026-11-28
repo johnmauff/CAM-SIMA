@@ -58,6 +58,7 @@
     </variable>
     <variable local_name="standard_var"
               standard_name="standard_non_ddt_variable"
+              memory_space="device"
               units="K" type="real" phys_timestep_init_zero="true">
               <ic_file_input_names>stand_var</ic_file_input_names>
     </variable>

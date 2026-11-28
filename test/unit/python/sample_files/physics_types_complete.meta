@@ -101,6 +101,7 @@
   units = K
   type = real
   dimensions = ()
+  memory_space = device
 [ cappav ]
   standard_name = composition_dependent_ratio_of_dry_air_gas_constant_to_specific_heat_at_constant_pressure
   long_name = Composition-dependent ratio of dry air gas constant to specific heat at constant pressure

@@ -19,6 +19,9 @@ module physics_types_complete
   use ccpp_kinds, only: kind_phys
   use physconst,  only: rair
   use physconst,  only: cpair
+#ifdef _OPENACC
+  use openacc, only: acc_is_present
+#endif
 
 
   implicit none
@@ -76,6 +79,11 @@ module physics_types_complete
   public :: physics_types_complete_tstep_init
   public :: physics_types_complete_update_device
   public :: physics_types_complete_update_host
+
+!! zero_device_array: zero the device copy of a device-resident variable in place
+  interface zero_device_array
+    module procedure zero_device_array_real_0d
+  end interface zero_device_array
 
 contains
 
@@ -213,6 +221,7 @@ contains
 
     ! standard_var: Standard non ddt variable
     standard_var = 0.0
+    call zero_device_array(standard_var)
 
     ! latitude: Latitude
     phys_state%latitude = 0._kind_phys
@@ -230,9 +239,22 @@ contains
     phys_state%pver = 0
 
   end subroutine physics_types_complete_tstep_init
+
+  subroutine zero_device_array_real_0d(array)
+    real, intent(inout) :: array
+#ifdef _OPENACC
+    if (acc_is_present(array)) then
+      !$acc kernels present(array)
+      array = 0.0
+      !$acc end kernels
+    end if
+#endif
+  end subroutine zero_device_array_real_0d
   subroutine physics_types_complete_update_device()
+    !$acc update device(standard_var) if_present
   end subroutine physics_types_complete_update_device
   subroutine physics_types_complete_update_host()
+    !$acc update self(standard_var) if_present
   end subroutine physics_types_complete_update_host
 
 end module physics_types_complete

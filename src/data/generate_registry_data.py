@@ -285,33 +285,7 @@ class VarBase:
         #Time-step initialization, which is always zero for numerical quantities,
         #empty strings for characters, and "false" for logical quantities:
         if tstep_init:
-            if self.var_type.lower() == 'real':
-                if self.kind:
-                    outfile.write(f'{var_name} = 0._{self.kind}', indent)
-                else:
-                    outfile.write(f'{var_name} = 0.0', indent)
-            elif self.var_type.lower() == 'integer':
-                if self.kind:
-                    outfile.write(f'{var_name} = 0_{self.kind}', indent)
-                else:
-                    outfile.write(f'{var_name} = 0'.format(var_name), indent)
-            elif self.var_type.lower() == 'character':
-                if self.kind:
-                    outfile.write(f'{var_name} = {self.kind}_""', indent)
-                else:
-                    outfile.write(f'{var_name} = ""', indent)
-            elif self.var_type.lower() == 'complex':
-                if self.kind:
-                    outfile.write(f'{var_name} = (0._{self.kind}, 0._{self.kind})', indent)
-                else:
-                    outfile.write(f'{var_name} = (0.0, 0.0)', indent)
-            elif self.var_type.lower() == 'logical':
-                outfile.write(f'{var_name} = .false.', indent)
-            else:
-                emsg = 'Variable "{}" is of type "{}", which is not a supported type\n'
-                emsg += 'for use with "phys_timestep_init_zero".'
-                raise TypeError(emsg.format(var_name, self.var_type))
-            # end if
+            outfile.write(f'{var_name} = {self.tstep_zero_value(var_name)}', indent)
         elif init_val:
             outfile.write(f"if ({init_var}) then", indent)
             outfile.write(f"{var_name} = {init_val}", indent+1)
@@ -320,6 +294,43 @@ class VarBase:
             # end if
             outfile.write("end if", indent)
         # end if
+
+    def tstep_zero_value(self, var_name):
+        """Return the value that the timestep-init routine assigns to this
+        variable: zero for numerical quantities, an empty string for
+        characters, and "false" for logical quantities."""
+        vtype = self.var_type.lower()
+        if vtype == 'real':
+            return f'0._{self.kind}' if self.kind else '0.0'
+        # end if
+        if vtype == 'integer':
+            return f'0_{self.kind}' if self.kind else '0'
+        # end if
+        if vtype == 'character':
+            return f'{self.kind}_""' if self.kind else '""'
+        # end if
+        if vtype == 'complex':
+            return f'(0._{self.kind}, 0._{self.kind})' if self.kind else '(0.0, 0.0)'
+        # end if
+        if vtype == 'logical':
+            return '.false.'
+        # end if
+        emsg = 'Variable "{}" is of type "{}", which is not a supported type\n'
+        emsg += 'for use with "phys_timestep_init_zero".'
+        raise TypeError(emsg.format(var_name, self.var_type))
+
+    def zero_device_array_procedure(self):
+        """Return (name, declaration type, rank, zero value) of the specific
+        zero_device_array procedure for this device-resident variable"""
+        if self.var_type.lower() == 'character':
+            emsg = (f'Variable "{self.local_name}": memory_space="device" is not '
+                    'supported with "phys_timestep_init_zero" for character type')
+            raise TypeError(emsg)
+        # end if
+        rank = len(self.dimensions) if self.dimensions else 0
+        suffix = f'{self.var_type}_{self.kind}' if self.kind else self.var_type
+        name = f'zero_device_array_{suffix.lower()}_{rank}d'
+        return (name, self.type_string, rank, self.tstep_zero_value(self.local_name))
 
     def set_initial_val_vars(self, init_vars):
         """Set the initial value variable set"""
@@ -932,6 +943,12 @@ class Variable(VarBase):
                 # Initialize the variable:
                 self.write_initial_value(outfile, indent, "", ddt_str, physconst_vars,
                                          tstep_init=True)
+                if self.memory_space == "device":
+                    # GPU builds: also zero the resident device copy in place
+                    # (no upload)
+                    outfile.write(f'call zero_device_array({ddt_str}{self.local_name})',
+                                  indent)
+                # end if
 
             # end if
 
@@ -1432,6 +1449,13 @@ class File:
                 pad = ' '*(maxlen - len(mod))
                 outfile.write(f'use {mod},{pad} only: {mtype}'.format(mod, pad, mtype), 1)
             # end for
+            zero_procs = self.zero_device_array_procedures()
+            if zero_procs:
+                # the timestep-init routine zeroes device copies in place
+                outfile.write('#ifdef _OPENACC', 0)
+                outfile.write('use openacc, only: acc_is_present', 1)
+                outfile.write('#endif', 0)
+            # end if
             # More boilerplate
             outfile.write("", 0)
             outfile.write_preamble()
@@ -1452,12 +1476,25 @@ class File:
                 outfile.write(f'public :: {self.update_device_routine_name(instance)}', 1)
                 outfile.write(f'public :: {self.update_host_routine_name(instance)}', 1)
             # end for
+            if zero_procs:
+                outfile.write('', 0)
+                outfile.write('!! zero_device_array: zero the device copy of a '
+                              'device-resident variable in place', 0)
+                outfile.write('interface zero_device_array', 1)
+                for proc in zero_procs:
+                    outfile.write(f'module procedure {proc[0]}', 2)
+                # end for
+                outfile.write('end interface zero_device_array', 1)
+            # end if
             # end of module header
             outfile.end_module_header()
             outfile.write("", 0)
             # Write data management subroutines
             self.write_allocate_routine(outfile, physconst_vars, var_module_dict)
             self.write_tstep_init_routine(outfile, physconst_vars)
+            for proc in zero_procs:
+                self.write_zero_device_array_procedure(outfile, proc)
+            # end for
             self.write_update_routine(outfile, self.update_device_routine_name(), "device")
             self.write_update_routine(outfile, self.update_host_routine_name(), "self")
             for instance in self.device_ddt_instances():
@@ -1506,6 +1543,47 @@ class File:
         return [f"{var.local_name}%{member.local_name}"
                 for member in ddt.variable_list()
                 if member.memory_space == "device"]
+
+    def zero_device_array_procedures(self):
+        """Return the specific procedures of the zero_device_array interface
+        that the timestep-init routine needs: one per (type, kind, rank) of the
+        variables and DDT members declared memory_space="device" that it
+        zeroes, as sorted (name, declaration type, rank, zero value) tuples"""
+        procs = set()
+        for var in self.__var_dict.variable_list():
+            if var.memory_space == "device" and var.tstep_init:
+                procs.add(var.zero_device_array_procedure())
+            # end if
+            ddt = self.__ddts.get(var.var_type)
+            if ddt is not None:
+                for member in ddt.variable_list():
+                    if (member.memory_space == "device" and
+                            (var.tstep_init or member.tstep_init)):
+                        procs.add(member.zero_device_array_procedure())
+                    # end if
+                # end for
+            # end if
+        # end for
+        return sorted(procs)
+
+    @staticmethod
+    def write_zero_device_array_procedure(outfile, proc):
+        """Write one specific procedure of the zero_device_array interface:
+        zero the device copy of its argument in place, if it is on the
+        device. Without OpenACC it does nothing."""
+        name, decl_type, rank, zero = proc
+        dims = f"({', '.join([':'] * rank)})" if rank else ''
+        outfile.write('', 0)
+        outfile.write(f'subroutine {name}(array)', 1)
+        outfile.write(f'{decl_type}, intent(inout) :: array{dims}', 2)
+        outfile.write('#ifdef _OPENACC', 0)
+        outfile.write('if (acc_is_present(array)) then', 2)
+        outfile.write('!$acc kernels present(array)', 3)
+        outfile.write(f'array = {zero}', 3)
+        outfile.write('!$acc end kernels', 3)
+        outfile.write('end if', 2)
+        outfile.write('#endif', 0)
+        outfile.write(f'end subroutine {name}', 1)
 
     def device_ddt_instances(self):
         """Return the local names of this file's DDT instances that have
